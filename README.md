@@ -2,7 +2,8 @@
 
 Ascend 原生推理引擎的开发工作区。**纯 Rust 控制面 + Ascend C 自研算子的裸金属运行时**，目标是让引擎与算子都能被 RSI（递归自我改进）闭环持续优化，并为 RL rollout 提供可信的数值。
 
-设计基线见 [`docs/DESIGN.md`](docs/DESIGN.md)，历史裁决见 [`docs/DECISIONS.md`](docs/DECISIONS.md)。
+设计基线见 [`docs/DESIGN.md`](docs/DESIGN.md)，历史裁决见 [`docs/DECISIONS.md`](docs/DECISIONS.md)，
+当前任务队列见 [`docs/TODO.md`](docs/TODO.md)。
 
 > 前身是 `../anyinfer`（PyTorch + vLLM wrapper 原型）。本仓库**不 vendoring、不依赖** vLLM / PyTorch 运行时；原型仅作为差分测试对照与工具方法论来源。
 
@@ -25,6 +26,7 @@ Ascend 原生推理引擎的开发工作区。**纯 Rust 控制面 + Ascend C �
 docs/
   DESIGN.md            架构契约（改设计前先改这里）
   DECISIONS.md         ADR，只追加
+  TODO.md              任务队列（完成判据 + 依赖）
 native/graph_probe/    里程碑 A：图捕获探针
   graph_probe.h          C ABI（纯 POD）
   graph_probe_kernel.cpp Ascend C kernel
