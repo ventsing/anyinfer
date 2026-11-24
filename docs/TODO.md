@@ -97,7 +97,8 @@ A-01 上机预检 ──> A-02 编译 ──> A-03 四臂判决 ──┬─> [i
 
 | ID | 任务 | 完成判据 | 依赖 | 估时 |
 | --- | --- | --- | --- | --- |
-| F-01 | CI：host-only 必跑 | `g++ graph_probe_logic_test` + `bash -n` + `cmake -B build`（无 CANN 路径）全绿 | — | 0.5 d |
+| F-00 | ✅ 本机工具链 + host-only 构建链 | cmake 4.4.5 / ninja 1.13.2 已装；`cmake -S . -B build -G Ninja` + `ctest` 全绿；两条负向用例（缺 SOC / 无 CANN）按预期报错。见 `docs/TOOLCHAIN.md` | — | 完成 |
+| F-01 | CI：host-only 必跑 | `g++ graph_probe_logic_test` + `bash -n` + `cmake -B build`（无 CANN 路径）全绿 | F-00 | 0.5 d |
 | F-02 | `rust-toolchain.toml` + `rust-version` | 锁定版本；CI 用同一版本 | D-01 | 0.2 d |
 | F-03 | 时间预算守护 | 脚本量测全量重建与 smoke，超 10 min / 60 s 直接失败 | B-06 | 0.5 d |
 | F-04 | LICENSE / NOTICE 决策 | 明确 derive-from-Apache-2.0（保留 notices）还是 clean-room；落成文件 | — | 0.2 d |
@@ -136,6 +137,7 @@ A-01 上机预检 ──> A-02 编译 ──> A-03 四臂判决 ──┬─> [i
 
 | 日期 | 里程碑 | 判决 | 依据 |
 | --- | --- | --- | --- |
+| 2026-11-24 | F-00 工具链 | ✅ 通过 | cmake 4.4.5 + ninja 1.13.2，host-only 配置/构建/`ctest` 全绿；缺 SOC 与无 CANN 两条负向用例按预期报错 |
 | 2026-11-24 | A（代码就绪） | 待上机 | host-only 裁决逻辑 10/10 通过；device 目标未编译 |
 
 ---

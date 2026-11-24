@@ -27,6 +27,7 @@ docs/
   DESIGN.md            架构契约（改设计前先改这里）
   DECISIONS.md         ADR，只追加
   TODO.md              任务队列（完成判据 + 依赖）
+  TOOLCHAIN.md         本机工具链的实测版本与安装方式
 native/graph_probe/    里程碑 A：图捕获探针
   graph_probe.h          C ABI（纯 POD）
   graph_probe_kernel.cpp Ascend C kernel
@@ -42,7 +43,20 @@ tests/
 
 ## 快速开始
 
-### 1. host-only（任何机器，无需 CANN）
+> 本机工具链的实测版本与安装方式见 [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md)。
+> 本机 `cmake` / `ninja` 装在 `~/.local/bin`，**默认不在 PATH 上**：
+> `export PATH="$HOME/.local/bin:$PATH"`
+
+### 1. host-only（任何机器，无需 CANN / NPU）
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+只裸编译也是可以的（不依赖 cmake）：
 
 ```bash
 g++ -std=c++17 -O2 -Wall -Wextra -I native/graph_probe \
