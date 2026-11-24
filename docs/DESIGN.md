@@ -266,6 +266,20 @@ max|Δlogprob| < 1e-3   ∧   clip_rate(PPO) < 1%
 
 - `Δlogprob` 相对**训练端**计算，不是相对自己上一次。
 
+**采样分布与导出的 logprob 是两个量，不许互相代替**（`crates/anyinfer-sampler`，D-04）：
+
+| 量 | 定义 | 用途 |
+| --- | --- | --- |
+| 采样分布 | `softmax(logits / T)` 截断到 top-k 再截断到 top-p，在**候选集**上归一 | 决定出哪个 token |
+| 导出的 logprob | `logit[chosen] - logsumexp(全词表)` | 训练端 / PPO 的 KL 与重要性比 |
+
+用采样分布算 logprob，会把温度和 top-p 的裁剪混进训练信号，PPO 的重要性比立刻算错——
+而且是"看起来只差一点点"的那种错，最难发现。所以导出的 logprob 恒等式
+`values[chosen] - full_logsumexp` **与 temperature / top_p 无关**，这条有专门的测试盯着。
+
+配套的诚实性约束：top-k 截断过多时，采样分布与真实分布已经不是一回事，
+而这**不会报错**。`candidate_mass()` 报出候选集覆盖的概率质量；要么报数，要么别裁。
+
 ### 6.3 batch invariance（分级）
 
 - **严格**：decode 的 dense 路径（attention / GEMM / 归约）在 batch=1 与 batch=N 下逐位一致。
@@ -276,6 +290,16 @@ max|Δlogprob| < 1e-3   ∧   clip_rate(PPO) < 1%
 ### 6.4 确定性
 
 同 seed + 同 prompt + 同 weight_version ⇒ **同轨迹**（token 序列逐位相同）。这是 RL 调试的底线，也是 L1 位级自检的前提。
+
+两条实现上的硬约束（`crates/anyinfer-sampler`）：
+
+1. **决策路径上不出现 libm**。`exp` 用自己实现的 `detmath::exp_f32`（只用 IEEE 保证正确舍入的
+   `+ - * /` 与 `floor`，加位操作）。libm 允许末位 ulp 的实现差异，一次采样的概率边界差 1 ulp
+   就可能在高熵 token 上翻转选择 —— 换机器后"同 seed 同轨迹"失效，且 99.999% 的 token 一样，
+   极难发现。诊断量（如 `candidate_mass`）允许用 libm，因为它不参与决策。
+2. **随机数必须是 `(seed, position)` 的纯函数**（计数器式，不是流式）。流式 RNG 的结果依赖
+   "之前抽了多少次"，而抽了多少次取决于批里有几行、有没有抢占重算、padding 占了几位 ——
+   于是同一请求在不同 batch 组合下得到不同 token，§6.3 的分级不变性直接崩掉。
 
 ### 6.5 Drain & Swap
 

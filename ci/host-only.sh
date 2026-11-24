@@ -109,11 +109,11 @@ step "权重哈希锁" python3 tools/toy/check_lock.py --manifest "$BUILD_DIR/to
 # 对拍器自证：参考vs参考必须过，扰动/注入NaN必须红
 step "对拍器自证有效" python3 tools/toy/selftest.py --dir "$BUILD_DIR/toy"
 
-echo "== 4b. Rust ABI 侧（可选）=="
+echo "== 4b. Rust 侧（可选）=="
 # Rust 与 C 各自对着 native/abi/abi_layout.txt 校验，任何一侧漂移都会被抓到。
 # 零依赖 crate，--offline 即可构建，不需要访问 registry。
-step_optional "cargo test -p anyinfer-abi" cargo \
-    cargo test -p anyinfer-abi --offline --quiet
+step_optional "cargo test --workspace" cargo \
+    cargo test --workspace --offline --quiet
 
 if [ "$QUICK" -eq 0 ]; then
     echo "== 5. cmake host-only 构建 =="

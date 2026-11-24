@@ -45,6 +45,10 @@ native/harness/        算子验收 harness（B-01..B-04b，纯 host）
   report.h               共用 Gate 语义与 JSON 形状
   bench.h                微基准协议（ABBA 配对 + 符号检验 + 退化分位数标记）
   accept.h               算子晋升裁决（三态门，NotRun 阻断晋升）
+crates/anyinfer-sampler/  确定性采样器（D-04，零依赖）
+  src/detmath.rs        自带 exp（决策路径不用 libm ⇒ 跨平台逐位一致）
+  src/rng.rs            计数器式 RNG：uniform01 是 (seed, position) 的纯函数
+  src/lib.rs            sample_row（top-k/top-p/greedy）+ logprob 契约
 crates/anyinfer-abi/   与 anyinfer.h 一一对应的 Rust 定义（零依赖）
   src/lib.rs            POD 结构体 + 布局报告生成
   src/bin/abi_dump.rs   生成 abi_layout.txt

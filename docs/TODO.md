@@ -20,7 +20,7 @@ C 轨道（本机可推进）：C-01 ✅ ─> C-02 ✅ ─> C-03 ✅ ─> C-04 �
 ```
 
 **Track B 的 host 侧已全部完成**（B-01..B-04b）。剩余 B-05/B-06/B-07 都需要上卡。
-下一步可推进：D-02（plan 阶段零分配）/ D-04（采样器），纯 host 可测；A-01 需编译机；C-05 需等 D-03。
+下一步可推进：D-02（plan 阶段零分配，纯 host 可测）；A-01 需编译机；C-05/D-05 需等 D-03。
 
 ---
 
@@ -78,7 +78,7 @@ C 轨道（本机可推进）：C-01 ✅ ─> C-02 ✅ ─> C-03 ✅ ─> C-04 �
 | D-01 | ✅ Cargo workspace + FFI 层 | `native/abi/anyinfer.h`（C11/C++ 双可用）+ `crates/anyinfer-abi`；`AnyInferStep` / `AnyInferStatus` 定稿含 `failed_op_id`；sizeof 硬钉（24/144）；布局产物 `abi_layout.txt` 由两侧独立校验；C 侧断言零隐式 padding | — | 完成 |
 | D-02 | plan 阶段一次性分配 | 零分配断言（沿用原型 `tests/host_decode_allocations.rs` 手法） | D-01 | 1 d |
 | D-03 | prefill 逐 op 序列 + 缓存 `aclOpExecutor` | 复用 executor 时 `aclTensor` 句柄一并缓存（否则 use-after-free）；重复下发位级一致 | D-01 | 3 d |
-| D-04 | 采样器：确定性 + top-k/top-p + logprob 导出 | 同 seed 同轨迹；logprob 用 fp32 且归约顺序与训练端一致 | D-01 | 2 d |
+| D-04 | ✅ 采样器：确定性 + top-k/top-p + logprob 导出 | `crates/anyinfer-sampler`：决策路径无 libm（自带 `exp_f32`，相对误差 ~1e-8）+ 计数器式 RNG（`(seed,position)` 纯函数 ⇒ 批次无关）；导出的 logprob 与 T/top_p 无关（专项测试 4800 组交叉验证）；27 项测试 | D-01 | 完成 |
 | D-05 | 端到端 L4 门 | token 序列与参考一致；logprob 最大绝对偏差 < 1e-3 | C-04, D-03, D-04 | 2 d |
 
 ---
@@ -140,6 +140,7 @@ C 轨道（本机可推进）：C-01 ✅ ─> C-02 ✅ ─> C-03 ✅ ─> C-04 �
 
 | 日期 | 里程碑 | 判决 | 依据 |
 | --- | --- | --- | --- |
+| 2026-11-24 | D-04 | ✅ 通过 | 27 项测试；logprob 恒等式在 6×4×200 组 (T, top_p, position) 交叉下逐位成立；top-p 截断点在均匀分布上锐利（1 万次抽样外候选零次出现，对照臂证明可达）；经验分布与解析概率 4σ 内一致 |
 | 2026-11-24 | D-01 | ✅ 通过 | 布局产物单一来源、两侧独立校验：C 侧改字段顺序 -> 精确报出两个字段的偏移；改产物 size -> Rust 报出行号、C 侧同时报出 trailing padding；缺 cargo 时显式 skip 而非静默跳过 |
 | 2026-11-24 | B-04b | ✅ 通过 | 26 项 accept 断言 + CI 端到端 8 步；缺证据退 2、失败退 1、用法错误退 64（刻意与 2 分离）；参考坏掉时归因指向 oracle |
 | 2026-11-24 | B-04 | ✅ 通过 | 注入假时钟后协议完全确定：分组除算、预热不计入、ABBA 顺序、7:0 -> p=0.015625 均被逐位断言；4:3 噪声与全平局均判 `indistinguishable`（负向对照） |

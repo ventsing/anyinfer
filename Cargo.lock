@@ -5,3 +5,7 @@ version = 4
 [[package]]
 name = "anyinfer-abi"
 version = "0.1.0"
+
+[[package]]
+name = "anyinfer-sampler"
+version = "0.1.0"
