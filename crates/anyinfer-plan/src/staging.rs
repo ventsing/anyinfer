@@ -15,7 +15,7 @@
 //!    "写了一半才发现第 2 行非法"会留下一个内部不自洽的 step，
 //!    而调用方可能已经把它的一部分当合法数据用了。所以校验阶段只读不写。
 
-use crate::{mul, PlanConfig, PlanError};
+use crate::{PlanConfig, PlanError, mul};
 
 /// padding 行的 KV 长度。
 ///
@@ -65,13 +65,26 @@ impl HostStaging {
         Ok(Self {
             token_ids: vec![PAD_TOKEN_ID; batch],
             positions: vec![PAD_POSITION; batch],
-            block_table: vec![config.dummy_block; usize::try_from(block_entries).map_err(|_| PlanError::SizeOverflow)?],
+            block_table: vec![
+                config.dummy_block;
+                usize::try_from(block_entries).map_err(|_| PlanError::SizeOverflow)?
+            ],
             seq_lens: vec![PAD_SEQ_LEN; batch],
             slot_mapping: vec![SLOT_NO_WRITE; batch],
-            topk_values: vec![0.0; usize::try_from(topk_entries).map_err(|_| PlanError::SizeOverflow)?],
-            topk_indices: vec![-1; usize::try_from(topk_entries).map_err(|_| PlanError::SizeOverflow)?],
+            topk_values: vec![
+                0.0;
+                usize::try_from(topk_entries).map_err(|_| PlanError::SizeOverflow)?
+            ],
+            topk_indices: vec![
+                -1;
+                usize::try_from(topk_entries).map_err(|_| PlanError::SizeOverflow)?
+            ],
             logsumexp: vec![0.0; batch],
-            sampling_mask: vec![0; usize::try_from(mask_entries).map_err(|_| PlanError::SizeOverflow)?],
+            sampling_mask: vec![
+                0;
+                usize::try_from(mask_entries)
+                    .map_err(|_| PlanError::SizeOverflow)?
+            ],
         })
     }
 }
@@ -244,8 +257,18 @@ mod tests {
 
     struct FakeSource;
     impl RegionSource for FakeSource {
-        fn acquire(&mut self, purpose: Purpose, bytes: u64, align: u32) -> Result<Region, PlanError> {
-            Ok(Region { purpose, id: 0, bytes, align })
+        fn acquire(
+            &mut self,
+            purpose: Purpose,
+            bytes: u64,
+            align: u32,
+        ) -> Result<Region, PlanError> {
+            Ok(Region {
+                purpose,
+                id: 0,
+                bytes,
+                align,
+            })
         }
     }
 
@@ -271,14 +294,22 @@ mod tests {
         let blocks = [10, 20, 30, 40];
         // seq_len = 5 -> position = 4 -> 逻辑块 1 -> 物理块 20 -> slot = 20*4 + 0 = 80
         let view = plan
-            .prepare_decode_step(&[DecodeRow { token_id: 7, seq_len: 5, block_ids: &blocks[..2] }])
+            .prepare_decode_step(&[DecodeRow {
+                token_id: 7,
+                seq_len: 5,
+                block_ids: &blocks[..2],
+            }])
             .unwrap();
         assert_eq!(view.positions[0], 4);
         assert_eq!(view.slot_mapping[0], 80);
 
         // seq_len = 4 -> position = 3 -> 逻辑块 0 -> 物理块 10 -> slot = 10*4 + 3 = 43
         let view = plan
-            .prepare_decode_step(&[DecodeRow { token_id: 7, seq_len: 4, block_ids: &blocks[..1] }])
+            .prepare_decode_step(&[DecodeRow {
+                token_id: 7,
+                seq_len: 4,
+                block_ids: &blocks[..1],
+            }])
             .unwrap();
         assert_eq!(view.positions[0], 3);
         assert_eq!(view.slot_mapping[0], 43);
@@ -289,12 +320,19 @@ mod tests {
         let mut plan = plan();
         let blocks = [5, 6, 7, 8];
         let view = plan
-            .prepare_decode_step(&[DecodeRow { token_id: 3, seq_len: 9, block_ids: &blocks }])
+            .prepare_decode_step(&[DecodeRow {
+                token_id: 3,
+                seq_len: 9,
+                block_ids: &blocks,
+            }])
             .unwrap();
         assert_eq!(view.rows, 1);
 
         for row in 1..4u32 {
-            assert_eq!(view.seq_lens[row as usize], PAD_SEQ_LEN, "读侧：KV 长度必须是 1");
+            assert_eq!(
+                view.seq_lens[row as usize], PAD_SEQ_LEN,
+                "读侧：KV 长度必须是 1"
+            );
             assert_eq!(view.positions[row as usize], PAD_POSITION);
             assert_eq!(
                 view.slot_mapping[row as usize], SLOT_NO_WRITE,
@@ -317,12 +355,20 @@ mod tests {
     fn block_table_tail_never_keeps_stale_blocks() {
         let mut plan = plan();
         let wide = [11, 12, 13, 14];
-        plan.prepare_decode_step(&[DecodeRow { token_id: 1, seq_len: 16, block_ids: &wide }])
-            .unwrap();
+        plan.prepare_decode_step(&[DecodeRow {
+            token_id: 1,
+            seq_len: 16,
+            block_ids: &wide,
+        }])
+        .unwrap();
 
         let narrow = [21];
         let view = plan
-            .prepare_decode_step(&[DecodeRow { token_id: 1, seq_len: 1, block_ids: &narrow }])
+            .prepare_decode_step(&[DecodeRow {
+                token_id: 1,
+                seq_len: 1,
+                block_ids: &narrow,
+            }])
             .unwrap();
         assert_eq!(view.block_row(0), &[21, 0, 0, 0], "stale blocks survived");
     }
@@ -333,14 +379,30 @@ mod tests {
         let blocks = [9];
         // 先填满 3 个实际行
         plan.prepare_decode_step(&[
-            DecodeRow { token_id: 2, seq_len: 1, block_ids: &blocks },
-            DecodeRow { token_id: 2, seq_len: 1, block_ids: &blocks },
-            DecodeRow { token_id: 2, seq_len: 1, block_ids: &blocks },
+            DecodeRow {
+                token_id: 2,
+                seq_len: 1,
+                block_ids: &blocks,
+            },
+            DecodeRow {
+                token_id: 2,
+                seq_len: 1,
+                block_ids: &blocks,
+            },
+            DecodeRow {
+                token_id: 2,
+                seq_len: 1,
+                block_ids: &blocks,
+            },
         ])
         .unwrap();
         // 再来只有 1 个实际行
         let view = plan
-            .prepare_decode_step(&[DecodeRow { token_id: 2, seq_len: 1, block_ids: &blocks }])
+            .prepare_decode_step(&[DecodeRow {
+                token_id: 2,
+                seq_len: 1,
+                block_ids: &blocks,
+            }])
             .unwrap();
         for row in 1..4usize {
             assert_eq!(view.slot_mapping[row], SLOT_NO_WRITE, "row {row} not reset");
@@ -353,19 +415,35 @@ mod tests {
     fn failed_validation_leaves_staging_untouched() {
         let mut plan = plan();
         let good = [3];
-        plan.prepare_decode_step(&[DecodeRow { token_id: 5, seq_len: 1, block_ids: &good }])
-            .unwrap();
+        plan.prepare_decode_step(&[DecodeRow {
+            token_id: 5,
+            seq_len: 1,
+            block_ids: &good,
+        }])
+        .unwrap();
         let before = snapshot(&plan);
 
         let bad_rows = [
-            DecodeRow { token_id: 6, seq_len: 1, block_ids: &good },
+            DecodeRow {
+                token_id: 6,
+                seq_len: 1,
+                block_ids: &good,
+            },
             // 第 2 行非法：block 数不足
-            DecodeRow { token_id: 6, seq_len: 64, block_ids: &good },
+            DecodeRow {
+                token_id: 6,
+                seq_len: 64,
+                block_ids: &good,
+            },
         ];
         let error = plan.prepare_decode_step(&bad_rows).unwrap_err();
         assert_eq!(
             error,
-            PlanError::BlocksDoNotCoverSeqLen { blocks: 1, block_size: 4, seq_len: 64 }
+            PlanError::BlocksDoNotCoverSeqLen {
+                blocks: 1,
+                block_size: 4,
+                seq_len: 64
+            }
         );
         assert_eq!(snapshot(&plan), before, "staging was partially overwritten");
     }
@@ -386,23 +464,42 @@ mod tests {
         let mut plan = plan();
         let fine = [1];
         assert_eq!(
-            plan.prepare_decode_step(&[DecodeRow { token_id: -1, seq_len: 1, block_ids: &fine }])
-                .unwrap_err(),
+            plan.prepare_decode_step(&[DecodeRow {
+                token_id: -1,
+                seq_len: 1,
+                block_ids: &fine
+            }])
+            .unwrap_err(),
             PlanError::NegativeTokenId(-1)
         );
         assert_eq!(
-            plan.prepare_decode_step(&[DecodeRow { token_id: 0, seq_len: 0, block_ids: &fine }])
-                .unwrap_err(),
+            plan.prepare_decode_step(&[DecodeRow {
+                token_id: 0,
+                seq_len: 0,
+                block_ids: &fine
+            }])
+            .unwrap_err(),
             PlanError::InvalidSeqLen(0)
         );
         assert_eq!(
-            plan.prepare_decode_step(&[DecodeRow { token_id: 0, seq_len: 1, block_ids: &[1, 2, 3, 4, 5] }])
-                .unwrap_err(),
-            PlanError::TooManyBlocks { requested: 5, cap: 4 }
+            plan.prepare_decode_step(&[DecodeRow {
+                token_id: 0,
+                seq_len: 1,
+                block_ids: &[1, 2, 3, 4, 5]
+            }])
+            .unwrap_err(),
+            PlanError::TooManyBlocks {
+                requested: 5,
+                cap: 4
+            }
         );
         assert_eq!(
-            plan.prepare_decode_step(&[DecodeRow { token_id: 0, seq_len: 1, block_ids: &[-3] }])
-                .unwrap_err(),
+            plan.prepare_decode_step(&[DecodeRow {
+                token_id: 0,
+                seq_len: 1,
+                block_ids: &[-3]
+            }])
+            .unwrap_err(),
             PlanError::NegativeBlockId(-3)
         );
     }
@@ -411,11 +508,20 @@ mod tests {
     fn too_many_rows_is_a_bucket_error_not_a_reallocation() {
         let mut plan = plan();
         let blocks = [1];
-        let row = DecodeRow { token_id: 0, seq_len: 1, block_ids: &blocks };
-        let error = plan.prepare_decode_step(&[row, row, row, row, row]).unwrap_err();
+        let row = DecodeRow {
+            token_id: 0,
+            seq_len: 1,
+            block_ids: &blocks,
+        };
+        let error = plan
+            .prepare_decode_step(&[row, row, row, row, row])
+            .unwrap_err();
         assert_eq!(
             error,
-            PlanError::BatchExceedsBucket { requested: 5, bucket: 4 }
+            PlanError::BatchExceedsBucket {
+                requested: 5,
+                bucket: 4
+            }
         );
     }
 
@@ -437,8 +543,24 @@ mod tests {
         for config in [
             config(),
             // 非 2 的幂：ceil 类的取整错误只会在这里露出来
-            PlanConfig { max_batch: 3, max_blocks: 5, block_size: 7, vocab_size: 100, topk: 3, dummy_block: 0, kv_cache_bytes: 0 },
-            PlanConfig { max_batch: 1, max_blocks: 1, block_size: 1, vocab_size: 1, topk: 1, dummy_block: 0, kv_cache_bytes: 0 },
+            PlanConfig {
+                max_batch: 3,
+                max_blocks: 5,
+                block_size: 7,
+                vocab_size: 100,
+                topk: 3,
+                dummy_block: 0,
+                kv_cache_bytes: 0,
+            },
+            PlanConfig {
+                max_batch: 1,
+                max_blocks: 1,
+                block_size: 1,
+                vocab_size: 1,
+                topk: 1,
+                dummy_block: 0,
+                kv_cache_bytes: 0,
+            },
         ] {
             let staging = HostStaging::new(&config).unwrap();
             let expect = |len: usize, purpose: Purpose, name: &str| {
@@ -450,20 +572,43 @@ mod tests {
             };
             expect(staging.token_ids.len(), Purpose::TokenIds, "token_ids");
             expect(staging.positions.len(), Purpose::Positions, "positions");
-            expect(staging.block_table.len(), Purpose::BlockTable, "block_table");
+            expect(
+                staging.block_table.len(),
+                Purpose::BlockTable,
+                "block_table",
+            );
             expect(staging.seq_lens.len(), Purpose::SeqLens, "seq_lens");
-            expect(staging.slot_mapping.len(), Purpose::SlotMapping, "slot_mapping");
-            expect(staging.topk_values.len(), Purpose::TopkValues, "topk_values");
-            expect(staging.topk_indices.len(), Purpose::TopkIndices, "topk_indices");
+            expect(
+                staging.slot_mapping.len(),
+                Purpose::SlotMapping,
+                "slot_mapping",
+            );
+            expect(
+                staging.topk_values.len(),
+                Purpose::TopkValues,
+                "topk_values",
+            );
+            expect(
+                staging.topk_indices.len(),
+                Purpose::TopkIndices,
+                "topk_indices",
+            );
             expect(staging.logsumexp.len(), Purpose::LogSumexp, "logsumexp");
-            expect(staging.sampling_mask.len(), Purpose::SamplingMask, "sampling_mask");
+            expect(
+                staging.sampling_mask.len(),
+                Purpose::SamplingMask,
+                "sampling_mask",
+            );
         }
     }
 
     #[test]
     fn mask_region_covers_every_token_exactly_once() {
         // 位图必须能放下 vocab 个 bit，且不浪费整字：100 -> 4 字 = 128 bit
-        let config = PlanConfig { vocab_size: 100, ..config() };
+        let config = PlanConfig {
+            vocab_size: 100,
+            ..config()
+        };
         let staging = HostStaging::new(&config).unwrap();
         let total_bits = staging.sampling_mask.len() / config.max_batch as usize * 32;
         assert!(total_bits >= config.vocab_size as usize);
@@ -476,8 +621,16 @@ mod tests {
         let blocks = [1, 2, 3, 4];
         let view = plan
             .prepare_decode_step(&[
-                DecodeRow { token_id: 0, seq_len: 13, block_ids: &blocks },
-                DecodeRow { token_id: 0, seq_len: 1, block_ids: &blocks[..1] },
+                DecodeRow {
+                    token_id: 0,
+                    seq_len: 13,
+                    block_ids: &blocks,
+                },
+                DecodeRow {
+                    token_id: 0,
+                    seq_len: 1,
+                    block_ids: &blocks[..1],
+                },
             ])
             .unwrap();
         assert_eq!(view.block_row(0), &[1, 2, 3, 4]);

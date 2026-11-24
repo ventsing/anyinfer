@@ -164,7 +164,9 @@ impl PrefixCache {
 
     /// **直接**附加计数。刻意暴露出来，好让"它不能用来判断可回收"这件事有测试盯着。
     pub fn direct_attachments(&self, node: NodeId) -> u32 {
-        self.nodes.get(node as usize).map_or(0, |n| n.direct_attachments)
+        self.nodes
+            .get(node as usize)
+            .map_or(0, |n| n.direct_attachments)
     }
 
     fn node(&self, node: NodeId) -> Result<&Node, CacheError> {
@@ -269,12 +271,7 @@ impl PrefixCache {
         refs.released = true;
     }
 
-    fn spawn_node(
-        &mut self,
-        tokens: Vec<u32>,
-        blocks: Vec<Block>,
-        parent: NodeId,
-    ) -> NodeId {
+    fn spawn_node(&mut self, tokens: Vec<u32>, blocks: Vec<Block>, parent: NodeId) -> NodeId {
         if let Some(slot) = self.free_slots.pop() {
             let slot_index = slot as usize;
             self.nodes[slot_index] = Node::empty(Some(parent));
@@ -345,7 +342,9 @@ impl PrefixCache {
         }
 
         // 先从父节点的 children 摘掉，再释放 slot 和块
-        let parent = self.nodes[node as usize].parent.ok_or(CacheError::CannotEvictRoot)?;
+        let parent = self.nodes[node as usize]
+            .parent
+            .ok_or(CacheError::CannotEvictRoot)?;
         let key = self.nodes[node as usize].tokens.clone();
         self.nodes[parent as usize].children.remove(&key);
 
@@ -551,7 +550,10 @@ mod tests {
         // blocks_below 是 root → node 顺序，所以 [0] 是祖先 A 的块
         let a_block = cache.blocks_below(first.node)[0];
         let a_block_second = cache.blocks_below(second.node)[0];
-        assert_eq!(a_block, a_block_second, "shared ancestor block must be identical");
+        assert_eq!(
+            a_block, a_block_second,
+            "shared ancestor block must be identical"
+        );
     }
 
     /// 本模块的核心测试。
@@ -747,10 +749,7 @@ mod tests {
 
         // (1) 深度优先的朴素判据：祖先上没有"直接附加的请求"，看起来可以回收
         let naive_says_evictable = cache.direct_attachments(ancestor) == 0;
-        assert!(
-            naive_says_evictable,
-            "前置条件不成立：祖先上居然有直接附加"
-        );
+        assert!(naive_says_evictable, "前置条件不成立：祖先上居然有直接附加");
 
         // (2) 但活跃请求的 KV 路径**包含**祖先的块 —— 注意力会读它
         let live_path = cache.blocks_below(deep.node);

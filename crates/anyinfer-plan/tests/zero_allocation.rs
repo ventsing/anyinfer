@@ -141,11 +141,20 @@ fn the_allocation_hook_actually_counts() {
 fn plan_creation_allocates_each_staging_buffer_exactly_once() {
     let observed = measure(|| {
         let plan = Plan::new(config(), CountingSource::new()).unwrap();
-        assert_eq!(plan.reserved_bytes(), 8192 + 16 + 16 + 64 + 16 + 16 + 512 + 64 + 64 + 16 + 16);
+        assert_eq!(
+            plan.reserved_bytes(),
+            8192 + 16 + 16 + 64 + 16 + 16 + 512 + 64 + 64 + 16 + 16
+        );
         drop(plan);
     });
-    assert_eq!(observed.allocate, 9, "staging should be 9 one-shot allocations");
-    assert_eq!(observed.reallocate, 0, "nothing should grow during planning");
+    assert_eq!(
+        observed.allocate, 9,
+        "staging should be 9 one-shot allocations"
+    );
+    assert_eq!(
+        observed.reallocate, 0,
+        "nothing should grow during planning"
+    );
 }
 
 /// 稳态：4096 步，零分配、零扩容。
@@ -161,8 +170,16 @@ fn steady_state_decode_never_touches_the_allocator() {
     let blocks_b: [i32; 4] = [5, 6, 7, 8];
 
     let mut rows = [
-        DecodeRow { token_id: 3, seq_len: 1, block_ids: &blocks_a[..1] },
-        DecodeRow { token_id: 9, seq_len: 1, block_ids: &blocks_b[..1] },
+        DecodeRow {
+            token_id: 3,
+            seq_len: 1,
+            block_ids: &blocks_a[..1],
+        },
+        DecodeRow {
+            token_id: 9,
+            seq_len: 1,
+            block_ids: &blocks_b[..1],
+        },
     ];
 
     // 预热：把任何一次性初始化（包括首次触碰 staging 的第一页）都做掉
@@ -206,7 +223,11 @@ fn steady_state_decode_never_touches_the_allocator() {
 fn changing_row_count_stays_within_the_bucket() {
     let mut plan = Plan::new(config(), CountingSource::new()).unwrap();
     let blocks: [i32; 4] = [1, 2, 3, 4];
-    let row = DecodeRow { token_id: 1, seq_len: 1, block_ids: &blocks[..1] };
+    let row = DecodeRow {
+        token_id: 1,
+        seq_len: 1,
+        block_ids: &blocks[..1],
+    };
 
     for count in 0..=4usize {
         let _ = plan.prepare_decode_step(&[row; 4][..count]).unwrap();
@@ -229,12 +250,22 @@ fn error_path_does_not_allocate() {
     let mut plan = Plan::new(config(), CountingSource::new()).unwrap();
     let blocks: [i32; 4] = [1, 2, 3, 4];
     // 5 行超出 4 行桶
-    let row = DecodeRow { token_id: 1, seq_len: 1, block_ids: &blocks[..1] };
+    let row = DecodeRow {
+        token_id: 1,
+        seq_len: 1,
+        block_ids: &blocks[..1],
+    };
 
     let observed = measure(|| {
         for _ in 0..1024 {
             let error = plan.prepare_decode_step(&[row; 5]).unwrap_err();
-            assert_eq!(error, PlanError::BatchExceedsBucket { requested: 5, bucket: 4 });
+            assert_eq!(
+                error,
+                PlanError::BatchExceedsBucket {
+                    requested: 5,
+                    bucket: 4
+                }
+            );
         }
     });
     assert_eq!(observed, Calls::default(), "error path allocated");

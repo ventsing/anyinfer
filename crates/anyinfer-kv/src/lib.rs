@@ -19,7 +19,7 @@ mod simulation;
 pub use arena::{Arena, ArenaConfig, ArenaError, Block};
 pub use prefix::{CacheError, Evicted, Inserted, NodeId, PathRefs, PrefixCache, ROOT};
 pub use reclaim::{
-    plan_reclaim, Budget, Candidate as ReclaimCandidate, ReclaimPlan, RecomputeLedger,
-    SequenceId, TARGET_PREEMPT_RATE, Window,
+    Budget, Candidate as ReclaimCandidate, ReclaimPlan, RecomputeLedger, SequenceId,
+    TARGET_PREEMPT_RATE, Window, plan_reclaim,
 };
 pub use sequence::{KvError, KvSequence, Slot};

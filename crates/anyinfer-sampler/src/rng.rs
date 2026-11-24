@@ -51,7 +51,10 @@ mod tests {
     fn uniform_is_in_unit_interval() {
         for position in 0..10_000u64 {
             let value = uniform01(0x1234_5678, position);
-            assert!((0.0..1.0).contains(&value), "uniform01 out of range: {value}");
+            assert!(
+                (0.0..1.0).contains(&value),
+                "uniform01 out of range: {value}"
+            );
         }
     }
 
@@ -68,7 +71,10 @@ mod tests {
     #[test]
     fn uniform_is_deterministic() {
         for position in [0u64, 1, 42, u64::MAX] {
-            assert_eq!(uniform01(99, position).to_bits(), uniform01(99, position).to_bits());
+            assert_eq!(
+                uniform01(99, position).to_bits(),
+                uniform01(99, position).to_bits()
+            );
         }
     }
 
@@ -81,7 +87,10 @@ mod tests {
             }
         }
         // 相邻位置撞车的概率是 2^-24；1000 次里几乎必然全不同
-        assert!(differing > 995, "too many collisions: {differing}/1000 distinguishable");
+        assert!(
+            differing > 995,
+            "too many collisions: {differing}/1000 distinguishable"
+        );
     }
 
     #[test]
@@ -140,7 +149,10 @@ mod tests {
         // 换一个角度确认 finalizer 不是一个退化的函数
         let mut seen = std::collections::HashSet::new();
         for position in 0..5000u64 {
-            assert!(seen.insert(mix64(position)), "mix64 collision at {position}");
+            assert!(
+                seen.insert(mix64(position)),
+                "mix64 collision at {position}"
+            );
         }
     }
 }

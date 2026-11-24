@@ -19,7 +19,7 @@
 
 use crate::arena::{Arena, ArenaConfig};
 use crate::prefix::{NodeId, PrefixCache};
-use crate::reclaim::{plan_reclaim, Budget, Candidate, ReclaimPlan, RecomputeLedger, SequenceId};
+use crate::reclaim::{Budget, Candidate, ReclaimPlan, RecomputeLedger, SequenceId, plan_reclaim};
 use crate::sequence::KvSequence;
 
 const WIDTH: u32 = 4;
@@ -130,9 +130,8 @@ fn run(blocks: u32, eviction_enabled: bool) -> Outcome {
                     index += 1;
                 }
                 Err(_) => {
-                    let victims =
-                        reclaim(&mut cache, &live, eviction_enabled, &mut evictions);
-                    let freed = !victims.is_empty();
+                    // 先驱逐、再抢占。换出（D2H 到 pinned host）需要设备，仿真不建模。
+                    let victims = reclaim(&mut cache, &live, eviction_enabled, &mut evictions);
                     for slot in victims {
                         if slot >= live.len() {
                             continue;
@@ -154,9 +153,9 @@ fn run(blocks: u32, eviction_enabled: bool) -> Outcome {
                             gave_up += 1;
                         }
                     }
-                    // 一个都没腾出来就往后走，避免原地死循环
+                    // 这个序列没能推进（腾不出块也抢不到人），挪到下一个。
+                    // 不挪的话，`while index < live.len()` 会在同一个元素上原地死循环。
                     index += 1;
-                    let _ = freed;
                 }
             }
         }
@@ -335,7 +334,10 @@ mod tests {
         let mut previous = f64::INFINITY;
         for blocks in capacities {
             let outcome = run(blocks, true);
-            assert!(!outcome.truncated, "{blocks} blocks truncated; ratio not comparable");
+            assert!(
+                !outcome.truncated,
+                "{blocks} blocks truncated; ratio not comparable"
+            );
             let rate = outcome.rate().unwrap();
             assert!(
                 rate <= previous + 1e-9,
@@ -375,7 +377,9 @@ mod sweep {
     #[test]
     #[ignore]
     fn print_pressure_sweep() {
-        println!("blocks | decoded | with_evict preempt/recompute/rate | without preempt/recompute/rate | gave_up");
+        println!(
+            "blocks | decoded | with_evict preempt/recompute/rate | without preempt/recompute/rate | gave_up"
+        );
         for blocks in [8u32, 10, 12, 14, 16, 18, 20, 24, 32, 64] {
             let with = run(blocks, true);
             let without = run(blocks, false);

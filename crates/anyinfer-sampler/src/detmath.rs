@@ -171,7 +171,10 @@ mod tests {
         let mut x = -100.0_f32;
         while x <= 0.0 {
             let value = super::exp_f32(x);
-            assert!((0.0..=1.0).contains(&value), "exp({x}) = {value} out of (0,1]");
+            assert!(
+                (0.0..=1.0).contains(&value),
+                "exp({x}) = {value} out of (0,1]"
+            );
             x += 0.01;
         }
     }

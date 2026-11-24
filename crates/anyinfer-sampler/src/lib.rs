@@ -315,14 +315,20 @@ mod tests {
         );
         // 温度 / top_p 边界
         for bad in [-1.0_f32, f32::NAN] {
-            let p = SamplingParams { temperature: bad, ..Default::default() };
+            let p = SamplingParams {
+                temperature: bad,
+                ..Default::default()
+            };
             assert_eq!(
                 sample_row(&p, &candidates(&values, &[1, 2], 0.0), 0),
                 Err(SampleError::InvalidTemperature)
             );
         }
         for bad in [0.0_f32, -0.5, 1.001, f32::NAN] {
-            let p = SamplingParams { top_p: bad, ..Default::default() };
+            let p = SamplingParams {
+                top_p: bad,
+                ..Default::default()
+            };
             assert_eq!(
                 sample_row(&p, &candidates(&values, &[1, 2], 0.0), 0),
                 Err(SampleError::InvalidTopP)
@@ -336,7 +342,11 @@ mod tests {
         let indices = [7, 8, 9];
         for position in 0..500u64 {
             let outcome = sample_row(
-                &SamplingParams { temperature: 1.0, top_p: 1.0, seed: 42 },
+                &SamplingParams {
+                    temperature: 1.0,
+                    top_p: 1.0,
+                    seed: 42,
+                },
                 &candidates(&values, &indices, 5.0),
                 position,
             )
@@ -348,7 +358,11 @@ mod tests {
     #[test]
     fn single_candidate_always_wins() {
         for temperature in [0.0_f32, 0.5, 1.0, 7.0] {
-            let params = SamplingParams { temperature, top_p: 0.9, seed: 1 };
+            let params = SamplingParams {
+                temperature,
+                top_p: 0.9,
+                seed: 1,
+            };
             for position in 0..100u64 {
                 let outcome =
                     sample_row(&params, &candidates(&[1.5], &[99], 2.0), position).unwrap();
@@ -369,11 +383,20 @@ mod tests {
         for temperature in [0.0_f32, 0.25, 0.7, 1.0, 2.0, 50.0] {
             for top_p in [0.05_f32, 0.3, 0.75, 1.0] {
                 for position in 0..200u64 {
-                    let params = SamplingParams { temperature, top_p, seed: 12345 };
-                    let outcome = sample_row(&params, &candidates(&values, &indices, full_logsumexp), position)
-                        .unwrap();
+                    let params = SamplingParams {
+                        temperature,
+                        top_p,
+                        seed: 12345,
+                    };
+                    let outcome = sample_row(
+                        &params,
+                        &candidates(&values, &indices, full_logsumexp),
+                        position,
+                    )
+                    .unwrap();
                     // 恒等式必须严格成立，且只依赖被选中的那个候选
-                    let expected = values[indices.iter().position(|&i| i == outcome.token).unwrap()]
+                    let expected = values
+                        [indices.iter().position(|&i| i == outcome.token).unwrap()]
                         - full_logsumexp;
                     assert_eq!(
                         outcome.logprob.to_bits(),
@@ -397,10 +420,18 @@ mod tests {
         // [0, -10, -20] 在 T=1 下第一个候选独占 ~99.995% 的质量
         let values = [0.0, -10.0, -20.0];
         let indices = [1, 2, 3];
-        let params = SamplingParams { temperature: 1.0, top_p: 0.5, seed: 7 };
+        let params = SamplingParams {
+            temperature: 1.0,
+            top_p: 0.5,
+            seed: 7,
+        };
         for position in 0..1000u64 {
-            let outcome = sample_row(&params, &candidates(&values, &indices, -0.000_045), position)
-                .unwrap();
+            let outcome = sample_row(
+                &params,
+                &candidates(&values, &indices, -0.000_045),
+                position,
+            )
+            .unwrap();
             assert_eq!(outcome.token, 1, "top-p kept a negligible-mass token");
             assert_eq!(outcome.kept, 1);
             // retained_fraction 是"保留部分占候选集总权重"的比例，
@@ -420,34 +451,57 @@ mod tests {
     fn top_p_cut_point_is_exact() {
         let values = [0.0_f32; 4];
         let indices = [1, 2, 3, 4];
-        let params = SamplingParams { temperature: 1.0, top_p: 0.6, seed: 999 };
+        let params = SamplingParams {
+            temperature: 1.0,
+            top_p: 0.6,
+            seed: 999,
+        };
 
         for position in 0..10_000u64 {
-            let outcome = sample_row(&params, &candidates(&values, &indices, 4.0_f32.ln()), position)
-                .unwrap();
+            let outcome = sample_row(
+                &params,
+                &candidates(&values, &indices, 4.0_f32.ln()),
+                position,
+            )
+            .unwrap();
             assert_eq!(outcome.kept, 3, "cut point should keep exactly three");
             assert_ne!(outcome.token, 4, "token beyond the top-p cut was sampled");
         }
 
         // 对照组：top_p = 1.0 时第四个候选必须能被抽到，否则上一条测试没有意义
-        let loose = SamplingParams { temperature: 1.0, top_p: 1.0, seed: 999 };
+        let loose = SamplingParams {
+            temperature: 1.0,
+            top_p: 1.0,
+            seed: 999,
+        };
         let mut saw_last = false;
         for position in 0..10_000u64 {
-            let outcome = sample_row(&loose, &candidates(&values, &indices, 4.0_f32.ln()), position)
-                .unwrap();
+            let outcome = sample_row(
+                &loose,
+                &candidates(&values, &indices, 4.0_f32.ln()),
+                position,
+            )
+            .unwrap();
             if outcome.token == 4 {
                 saw_last = true;
                 break;
             }
         }
-        assert!(saw_last, "with top_p = 1.0 the last candidate must be reachable");
+        assert!(
+            saw_last,
+            "with top_p = 1.0 the last candidate must be reachable"
+        );
     }
 
     #[test]
     fn top_p_one_keeps_everything() {
         let values = [0.0, -1.0, -2.0];
         let indices = [1, 2, 3];
-        let params = SamplingParams { temperature: 1.0, top_p: 1.0, seed: 7 };
+        let params = SamplingParams {
+            temperature: 1.0,
+            top_p: 1.0,
+            seed: 7,
+        };
         let outcome = sample_row(&params, &candidates(&values, &indices, 0.0), 3).unwrap();
         assert_eq!(outcome.kept, 3, "top_p = 1.0 must not truncate");
     }
@@ -457,7 +511,11 @@ mod tests {
         // 温度 1、top_p 1、logits 使得概率为 [0.5, 0.25, 0.25]
         let values = [0.0_f32, -std::f32::consts::LN_2, -std::f32::consts::LN_2];
         let indices = [10, 20, 30];
-        let params = SamplingParams { temperature: 1.0, top_p: 1.0, seed: 0xC0FFEE };
+        let params = SamplingParams {
+            temperature: 1.0,
+            top_p: 1.0,
+            seed: 0xC0FFEE,
+        };
 
         const N: u64 = 60_000;
         let mut counts = [0u64; 3];
@@ -488,7 +546,11 @@ mod tests {
     fn determinism_across_repeated_calls() {
         let values = [1.0_f32, 0.5, 0.25, 0.125];
         let indices = [1, 2, 3, 4];
-        let params = SamplingParams { temperature: 0.8, top_p: 0.95, seed: 0xABCD_EF01 };
+        let params = SamplingParams {
+            temperature: 0.8,
+            top_p: 0.95,
+            seed: 0xABCD_EF01,
+        };
         let first: Vec<i32> = (0..1000)
             .map(|position| {
                 sample_row(&params, &candidates(&values, &indices, 1.0), position)
@@ -511,7 +573,11 @@ mod tests {
     fn batch_composition_does_not_matter() {
         let values = [1.0_f32, 0.5, 0.25];
         let indices = [11, 22, 33];
-        let params = SamplingParams { temperature: 1.0, top_p: 0.9, seed: 4242 };
+        let params = SamplingParams {
+            temperature: 1.0,
+            top_p: 0.9,
+            seed: 4242,
+        };
 
         let alone: Vec<i32> = (0..200)
             .map(|position| {
@@ -529,7 +595,11 @@ mod tests {
                 let other_values = [other_row as f32, 0.0];
                 let other_indices = [900 + other_row as i32, 901];
                 let other = sample_row(
-                    &SamplingParams { temperature: 1.3, top_p: 0.8, seed: 999 + other_row },
+                    &SamplingParams {
+                        temperature: 1.3,
+                        top_p: 0.8,
+                        seed: 999 + other_row,
+                    },
                     &candidates(&other_values, &other_indices, 0.0),
                     position,
                 );
@@ -560,7 +630,11 @@ mod tests {
         // 首元素权重恒为 exp(0) = 1，因此 total >= 1，除法不会退化
         let values = [0.0_f32, -1000.0, -1000.0];
         let outcome = sample_row(
-            &SamplingParams { temperature: 1.0, top_p: 1.0, seed: 1 },
+            &SamplingParams {
+                temperature: 1.0,
+                top_p: 1.0,
+                seed: 1,
+            },
             &candidates(&values, &[1, 2, 3], 0.5),
             0,
         )

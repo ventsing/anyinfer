@@ -44,11 +44,20 @@ pub enum KvError {
     /// 正常路径**永远**碰不到：共享段的 token 数是块宽的整数倍，
     /// 新 token 的位置必然在它之后。一旦出现，说明有人手工拼了一个长度不对的序列，
     /// 或者前缀树里出现了非整块的节点。
-    WouldWriteSharedBlock { position: usize, shared_tokens: usize },
+    WouldWriteSharedBlock {
+        position: usize,
+        shared_tokens: usize,
+    },
     /// 序列长度超出容量上限。容量在 fork 时定死，因为分页式 KV 也要预留块表列数。
-    ExceedsCapacity { position: usize, capacity: usize },
+    ExceedsCapacity {
+        position: usize,
+        capacity: usize,
+    },
     /// fork 时要求的容量装不下共享前缀本身。
-    CapacityBelowPrefix { capacity: usize, shared_tokens: usize },
+    CapacityBelowPrefix {
+        capacity: usize,
+        shared_tokens: usize,
+    },
     /// 块宽非法（只在块宽为 0 时出现，构造 Arena 时就该拦住了）。
     ZeroBlockSize,
     /// fork/join 时前缀树或 arena 报的错，原样透出。
@@ -237,7 +246,10 @@ mod tests {
 
         let first = seq.append_token(cache.arena_mut_for_test()).unwrap();
         assert_eq!(first.position, 8);
-        assert_eq!(first.offset, 0, "共享段是整块，所以第一个新 token 在块偏移 0");
+        assert_eq!(
+            first.offset, 0,
+            "共享段是整块，所以第一个新 token 在块偏移 0"
+        );
         assert!(seq.private_blocks().contains(&first.block));
         assert!(!seq.shared_blocks().contains(&first.block));
         cache.join(seq).unwrap();
@@ -254,7 +266,11 @@ mod tests {
 
         // 共享前缀只算一次：两个序列拿到的是同一批块
         assert_eq!(left.shared_blocks(), right.shared_blocks());
-        assert_eq!(cache.arena().in_use_count(), 2, "prefix blocks must be shared, not copied");
+        assert_eq!(
+            cache.arena().in_use_count(),
+            2,
+            "prefix blocks must be shared, not copied"
+        );
 
         let left_slot = left.append_token(cache.arena_mut_for_test()).unwrap();
         let right_slot = right.append_token(cache.arena_mut_for_test()).unwrap();
@@ -391,7 +407,11 @@ mod tests {
         cache.join(seq).unwrap();
         // 共享前缀仍被缓存树持有（refcount 归零但块还在用），私有块已释放
         assert_eq!(cache.arena().total_refcount(), 0);
-        assert_eq!(cache.arena().in_use_count(), 2, "only the cached prefix remains");
+        assert_eq!(
+            cache.arena().in_use_count(),
+            2,
+            "only the cached prefix remains"
+        );
 
         // 缓存树整体回收后一块不剩
         while cache.evict_leaf_lru().unwrap().is_some() {}
@@ -456,7 +476,9 @@ mod tests {
                 3..=5 => {
                     let count = 1 + (next() % 5) as usize;
                     for _ in 0..count {
-                        let Some(index) = (!live.is_empty()).then(|| (next() as usize) % live.len()) else {
+                        let Some(index) =
+                            (!live.is_empty()).then(|| (next() as usize) % live.len())
+                        else {
                             break;
                         };
                         let seq = &mut live[index];
@@ -501,7 +523,11 @@ mod tests {
         for seq in live {
             cache.join(seq).unwrap();
         }
-        assert_eq!(cache.arena().total_refcount(), 0, "attach/join not balanced");
+        assert_eq!(
+            cache.arena().total_refcount(),
+            0,
+            "attach/join not balanced"
+        );
         while cache.evict_leaf_lru().unwrap().is_some() {}
         assert_eq!(cache.arena().in_use_count(), 0, "blocks leaked");
     }

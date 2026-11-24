@@ -279,7 +279,10 @@ mod tests {
         let plan = plan_reclaim(6, budget, &candidates);
         assert_eq!(plan.evict_blocks, 6);
         assert_eq!(plan.swap_blocks, 0);
-        assert!(plan.preempted.is_empty(), "must not preempt while evictable remains");
+        assert!(
+            plan.preempted.is_empty(),
+            "must not preempt while evictable remains"
+        );
         assert_eq!(plan.recompute_tokens, 0);
         assert!(plan.is_sufficient(6));
         assert!(plan.respects_escalation(&budget, 6));
@@ -326,7 +329,10 @@ mod tests {
             vec![SequenceId(1)],
             "the cheapest sequence must be preempted"
         );
-        assert_eq!(plan.recompute_tokens, 10, "recompute cost must be the cheap one");
+        assert_eq!(
+            plan.recompute_tokens, 10,
+            "recompute cost must be the cheap one"
+        );
         assert!(plan.is_sufficient(8));
     }
 
@@ -390,7 +396,10 @@ mod tests {
         let candidates = [candidate(1, 10, 4), candidate(2, 4000, 4)];
         let plan = plan_reclaim(12, budget, &candidates);
         for id in &plan.preempted {
-            assert!(!plan.swapped.contains(id), "{id} was both swapped and preempted");
+            assert!(
+                !plan.swapped.contains(id),
+                "{id} was both swapped and preempted"
+            );
         }
         assert!(plan.respects_escalation(&budget, 12));
     }
@@ -418,10 +427,7 @@ mod tests {
         assert_eq!(ledger.cumulative_rate(), Some(0.0));
         ledger.record_recompute(10);
         assert_eq!(ledger.cumulative_rate(), Some(0.05));
-        assert!(
-            !ledger.within_target(TARGET_PREEMPT_RATE),
-            "5% is not < 5%"
-        );
+        assert!(!ledger.within_target(TARGET_PREEMPT_RATE), "5% is not < 5%");
     }
 
     /// ★ 累计率会撒谎：这一条是本模块存在的第二个理由。
@@ -440,9 +446,15 @@ mod tests {
         }
 
         let cumulative = ledger.cumulative_rate().unwrap();
-        assert!(cumulative < TARGET_PREEMPT_RATE, "cumulative looks fine: {cumulative:.4}");
+        assert!(
+            cumulative < TARGET_PREEMPT_RATE,
+            "cumulative looks fine: {cumulative:.4}"
+        );
         let worst = ledger.worst_window_rate().unwrap();
-        assert!(worst > TARGET_PREEMPT_RATE, "worst window must expose the spike: {worst:.4}");
+        assert!(
+            worst > TARGET_PREEMPT_RATE,
+            "worst window must expose the spike: {worst:.4}"
+        );
         assert!(
             !ledger.within_target(TARGET_PREEMPT_RATE),
             "a spike inside the target window must fail the gate"

@@ -53,7 +53,10 @@ pub enum ArenaError {
     /// 释放一个已经在自由队列里的块。自由队列出现重复项 = 两个请求会拿到同一块。
     DoubleFree(Block),
     /// 释放一个仍被活跃序列引用的块 = use-after-free。
-    StillReferenced { block: Block, refcount: u32 },
+    StillReferenced {
+        block: Block,
+        refcount: u32,
+    },
     /// 保留块不许释放。
     Reserved(Block),
     /// 块号超出范围。
@@ -62,7 +65,10 @@ pub enum ArenaError {
     RefcountUnderflow(Block),
     ZeroBlocks,
     ZeroBlockSize,
-    ReservedExceedsTotal { reserved: u32, total: u32 },
+    ReservedExceedsTotal {
+        reserved: u32,
+        total: u32,
+    },
 }
 
 pub struct Arena {
@@ -223,16 +229,34 @@ mod tests {
     #[test]
     fn config_validation() {
         assert_eq!(
-            Arena::new(ArenaConfig { num_blocks: 0, block_size: 4, reserved_blocks: 0 }).err(),
+            Arena::new(ArenaConfig {
+                num_blocks: 0,
+                block_size: 4,
+                reserved_blocks: 0
+            })
+            .err(),
             Some(ArenaError::ZeroBlocks)
         );
         assert_eq!(
-            Arena::new(ArenaConfig { num_blocks: 4, block_size: 0, reserved_blocks: 0 }).err(),
+            Arena::new(ArenaConfig {
+                num_blocks: 4,
+                block_size: 0,
+                reserved_blocks: 0
+            })
+            .err(),
             Some(ArenaError::ZeroBlockSize)
         );
         assert_eq!(
-            Arena::new(ArenaConfig { num_blocks: 4, block_size: 4, reserved_blocks: 5 }).err(),
-            Some(ArenaError::ReservedExceedsTotal { reserved: 5, total: 4 })
+            Arena::new(ArenaConfig {
+                num_blocks: 4,
+                block_size: 4,
+                reserved_blocks: 5
+            })
+            .err(),
+            Some(ArenaError::ReservedExceedsTotal {
+                reserved: 5,
+                total: 4
+            })
         );
     }
 
@@ -277,7 +301,10 @@ mod tests {
         let mut arena = arena(4, 1);
         let block = arena.allocate().unwrap();
         arena.release(block).unwrap();
-        assert_eq!(arena.release(block).err(), Some(ArenaError::DoubleFree(block)));
+        assert_eq!(
+            arena.release(block).err(),
+            Some(ArenaError::DoubleFree(block))
+        );
         // 而且自由队列没有因此变长
         assert_eq!(arena.free_count(), 3);
     }
@@ -316,8 +343,14 @@ mod tests {
         let mut arena = arena(4, 1);
         let block = arena.allocate().unwrap();
         arena.release(block).unwrap();
-        assert_eq!(arena.retain(block).err(), Some(ArenaError::DoubleFree(block)));
-        assert_eq!(arena.unretain(block).err(), Some(ArenaError::DoubleFree(block)));
+        assert_eq!(
+            arena.retain(block).err(),
+            Some(ArenaError::DoubleFree(block))
+        );
+        assert_eq!(
+            arena.unretain(block).err(),
+            Some(ArenaError::DoubleFree(block))
+        );
     }
 
     #[test]

@@ -23,7 +23,7 @@
 pub mod staging;
 
 pub use staging::{
-    DecodeRow, HostStaging, StepView, PAD_POSITION, PAD_SEQ_LEN, PAD_TOKEN_ID, SLOT_NO_WRITE,
+    DecodeRow, HostStaging, PAD_POSITION, PAD_SEQ_LEN, PAD_TOKEN_ID, SLOT_NO_WRITE, StepView,
 };
 
 /// 设备缓冲对齐。CANN 的 H2D 与算子都按 512 B 对齐组织。
@@ -117,12 +117,7 @@ pub struct Region {
 /// 这个 trait 存在的唯一理由是让"申请了几次、什么时候申请"变成**可断言的量**。
 /// 没有它，"plan 期一次分配"就只是一句注释。
 pub trait RegionSource {
-    fn acquire(
-        &mut self,
-        purpose: Purpose,
-        bytes: u64,
-        align: u32,
-    ) -> Result<Region, PlanError>;
+    fn acquire(&mut self, purpose: Purpose, bytes: u64, align: u32) -> Result<Region, PlanError>;
 }
 
 /// 11 块区域，按用途命名。用结构体字段而不是 `Vec` 是为了让"一块都不缺"由类型保证。
@@ -171,22 +166,44 @@ pub enum PlanError {
     ZeroBlockSize,
     ZeroVocab,
     ZeroTopk,
-    TopkExceedsVocab { topk: u32, vocab_size: u32 },
+    TopkExceedsVocab {
+        topk: u32,
+        vocab_size: u32,
+    },
     NegativeDummyBlock(i32),
     /// 请求行数超出桶。上层必须换桶，不能在这里扩容。
-    BatchExceedsBucket { requested: u32, bucket: u32 },
-    TooManyBlocks { requested: u32, cap: u32 },
+    BatchExceedsBucket {
+        requested: u32,
+        bucket: u32,
+    },
+    TooManyBlocks {
+        requested: u32,
+        cap: u32,
+    },
     /// block 数不足以覆盖 `seq_len`：KV 会读到没分配给自己的块。
-    BlocksDoNotCoverSeqLen { blocks: u32, block_size: u32, seq_len: i32 },
+    BlocksDoNotCoverSeqLen {
+        blocks: u32,
+        block_size: u32,
+        seq_len: i32,
+    },
     InvalidSeqLen(i32),
-    InvalidPosition { position: i32, seq_len: i32 },
+    InvalidPosition {
+        position: i32,
+        seq_len: i32,
+    },
     NegativeTokenId(i32),
     /// token id 超出词表 = embedding 查表越界读。
-    TokenIdOutOfVocab { token_id: i32, vocab_size: u32 },
+    TokenIdOutOfVocab {
+        token_id: i32,
+        vocab_size: u32,
+    },
     /// 负块号 = 越界设备指针。
     NegativeBlockId(i32),
     SizeOverflow,
-    TotalTooLarge { bytes: u64, cap: u64 },
+    TotalTooLarge {
+        bytes: u64,
+        cap: u64,
+    },
 }
 
 impl PlanError {
@@ -201,11 +218,11 @@ impl PlanError {
             PlanError::NegativeDummyBlock(_) => "dummy_block 必须 >= 0",
             PlanError::BatchExceedsBucket { .. } => "行数超出桶：上层应换桶换 plan",
             PlanError::TooManyBlocks { .. } => "序列占用的 block 数超出 max_blocks",
-            PlanError::BlocksDoNotCoverSeqLen { .. } => {
-                "block 数不足以覆盖 seq_len：KV 会越界读"
-            }
+            PlanError::BlocksDoNotCoverSeqLen { .. } => "block 数不足以覆盖 seq_len：KV 会越界读",
             PlanError::InvalidSeqLen(_) => "seq_len 必须 >= 1",
-            PlanError::InvalidPosition { .. } => "decode 一步只追加一个 token，position 必须为 seq_len - 1",
+            PlanError::InvalidPosition { .. } => {
+                "decode 一步只追加一个 token，position 必须为 seq_len - 1"
+            }
             PlanError::NegativeTokenId(_) => "token id 必须 >= 0",
             PlanError::TokenIdOutOfVocab { .. } => "token id 超出词表：embedding 会越界读",
             PlanError::NegativeBlockId(_) => "块号必须 >= 0：负块号等于越界设备指针",
@@ -228,16 +245,13 @@ pub fn mask_words(vocab_size: u32) -> Result<u64, PlanError> {
 pub fn region_bytes(config: &PlanConfig, purpose: Purpose) -> Result<u64, PlanError> {
     let batch = u64::from(config.max_batch);
     match purpose {
-        Purpose::TokenIds
-        | Purpose::Positions
-        | Purpose::SeqLens
-        | Purpose::SlotMapping => mul(batch, 4),
+        Purpose::TokenIds | Purpose::Positions | Purpose::SeqLens | Purpose::SlotMapping => {
+            mul(batch, 4)
+        }
         Purpose::BlockTable => mul(mul(batch, u64::from(config.max_blocks))?, 4),
         Purpose::KvCache => Ok(config.kv_cache_bytes),
         Purpose::Logits => mul(mul(batch, u64::from(config.vocab_size))?, 4),
-        Purpose::TopkValues | Purpose::TopkIndices => {
-            mul(mul(batch, u64::from(config.topk))?, 4)
-        }
+        Purpose::TopkValues | Purpose::TopkIndices => mul(mul(batch, u64::from(config.topk))?, 4),
         Purpose::LogSumexp => mul(batch, 4),
         Purpose::SamplingMask => mul(mul(batch, mask_words(config.vocab_size)?)?, 4),
     }
@@ -402,7 +416,13 @@ mod tests {
 
     #[test]
     fn every_purpose_is_acquired_exactly_once() {
-        let plan = Plan::new(config(), FakeSource { acquired: Vec::new() }).unwrap();
+        let plan = Plan::new(
+            config(),
+            FakeSource {
+                acquired: Vec::new(),
+            },
+        )
+        .unwrap();
         let acquired = plan.into_source().acquired;
         assert_eq!(acquired.len(), Purpose::ALL.len());
         for purpose in Purpose::ALL {
@@ -418,11 +438,20 @@ mod tests {
     fn region_sizes_follow_the_config() {
         let config = config();
         assert_eq!(region_bytes(&config, Purpose::TokenIds).unwrap(), 4 * 4);
-        assert_eq!(region_bytes(&config, Purpose::BlockTable).unwrap(), 4 * 8 * 4);
+        assert_eq!(
+            region_bytes(&config, Purpose::BlockTable).unwrap(),
+            4 * 8 * 4
+        );
         assert_eq!(region_bytes(&config, Purpose::Logits).unwrap(), 4 * 100 * 4);
-        assert_eq!(region_bytes(&config, Purpose::TopkValues).unwrap(), 4 * 8 * 4);
+        assert_eq!(
+            region_bytes(&config, Purpose::TopkValues).unwrap(),
+            4 * 8 * 4
+        );
         // 100 个 vocab -> ceil(100/32) = 4 个 32 位字
-        assert_eq!(region_bytes(&config, Purpose::SamplingMask).unwrap(), 4 * 4 * 4);
+        assert_eq!(
+            region_bytes(&config, Purpose::SamplingMask).unwrap(),
+            4 * 4 * 4
+        );
         assert_eq!(region_bytes(&config, Purpose::KvCache).unwrap(), 4096);
     }
 
@@ -448,9 +477,15 @@ mod tests {
         assert_eq!(bad(|c| c.topk = 0), PlanError::ZeroTopk);
         assert_eq!(
             bad(|c| c.topk = 101),
-            PlanError::TopkExceedsVocab { topk: 101, vocab_size: 100 }
+            PlanError::TopkExceedsVocab {
+                topk: 101,
+                vocab_size: 100
+            }
         );
-        assert_eq!(bad(|c| c.dummy_block = -1), PlanError::NegativeDummyBlock(-1));
+        assert_eq!(
+            bad(|c| c.dummy_block = -1),
+            PlanError::NegativeDummyBlock(-1)
+        );
     }
 
     /// 写错一个数量级必须变成错误，不能绕回成一个小数字然后 OOM。
@@ -480,8 +515,18 @@ mod tests {
     fn plan_rejects_a_source_that_returns_the_wrong_size() {
         struct Liar;
         impl RegionSource for Liar {
-            fn acquire(&mut self, purpose: Purpose, bytes: u64, align: u32) -> Result<Region, PlanError> {
-                Ok(Region { purpose, id: 0, bytes: bytes + 1, align })
+            fn acquire(
+                &mut self,
+                purpose: Purpose,
+                bytes: u64,
+                align: u32,
+            ) -> Result<Region, PlanError> {
+                Ok(Region {
+                    purpose,
+                    id: 0,
+                    bytes: bytes + 1,
+                    align,
+                })
             }
         }
         // 用 .err() 而不是 unwrap_err()：不为了让测试能打印错误就给 Plan 加 Debug，

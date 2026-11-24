@@ -177,13 +177,16 @@ pub fn layout_report() -> String {
     let mut out = String::new();
     out.push_str(&format!("anyinfer-abi-layout {}\n", ABI_VERSION));
 
-    dump_struct!(out, AnyInferStatus {
-        code: StatusCode,
-        failed_op_id: u32,
-        detail: i32,
-        reserved0: u32,
-        step_index: u64,
-    });
+    dump_struct!(
+        out,
+        AnyInferStatus {
+            code: StatusCode,
+            failed_op_id: u32,
+            detail: i32,
+            reserved0: u32,
+            step_index: u64,
+        }
+    );
 
     dump_struct!(out, AnyInferStep {
         abi_version: u32,
