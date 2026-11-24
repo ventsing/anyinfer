@@ -95,3 +95,22 @@
 理由：新增 CI 步骤：tools/device_probe.sh 的 bash -n 语法门
 
 - 修改 `ci/host-only.sh`：863a6e0ca7a3df3b → e05ea2ac9eb47138
+
+## 2026-11-24 17:50:40
+
+理由：A-02 设备脚本 device_a02.sh + 其解读层测试纳入受保护面；CI unittest 发现放宽为 *_test.py
+
+- 修改 `ci/host-only.sh`：e05ea2ac9eb47138 → dd2111a9ac0eb83d
+- 修改 `tools/immutable.py`：b94c502b0a314837 → 2fb47b7d8d326019
+- 新增 `tests/device_a02_interpret_test.py`：26c2f2df50b7f8de
+- 新增 `tools/device_a02.sh`：16489d13fef04a3b
+- 新增 `tools/device_probe.sh`：295aa66bce997125
+
+## 2026-11-24 17:52:20
+
+理由：A-02 前置检查修复：图 API 默认值不再冒充 A-01 结论；测试扩到前置检查；新增 TODO A-07 正式选项化
+
+- 修改 `tools/device_a02.sh`：16489d13fef04a3b → d9e9349cb6f7e39a
+- 修改 `tools/immutable.py`：2fb47b7d8d326019 → 3b2f9e803c978b43
+- 新增 `tests/device_a02_test.py`：ec3f8f1aba952f6f
+- 删除 `tests/device_a02_interpret_test.py`：原 26c2f2df50b7f8de

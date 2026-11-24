@@ -71,6 +71,10 @@ PROTECTED_FILES = [
     "docs/DECISIONS.md",
     # 执行者自己。能被改的检查器等于没有检查器 —— 改它会出现在漂移报告里。
     "tools/immutable.py",
+    # 上机判决的解读层。这里存的是判据：kernel_broken 不是架构结论、
+    # content_folded 禁止改代码去绕。改这里等于改"事故该往哪修"的答案。
+    "tools/device_a02.sh",
+    "tools/device_probe.sh",
     # 验证上面那些东西的测试本身。能被改的测试等于没测试。
     "tests/abi_layout_test.cpp",
     "tests/graph_probe_logic_test.cpp",
@@ -79,6 +83,7 @@ PROTECTED_FILES = [
     "tests/harness_compare_test.cpp",
     "tests/harness_exact_test.cpp",
     "tests/toy_reference_test.py",
+    "tests/device_a02_test.py",
 ]
 
 # 显式排除：`__pycache__` 是构建副产物，内容随 Python 版本变。

@@ -213,7 +213,21 @@ grep -rn "aclmdlRI" "$ASCEND_HOME_PATH/include/" | head
 ### 第 2 步：编译并跑 A-02 四臂探针
 
 ```bash
-cmake -B build -DANYINFER_WITH_CANN=ON -DANYINFER_SOC=<第 0 步量到的 SoC>
+./tools/device_a02.sh --soc <第 0 步量到的 SoC> --graph-api <1 或 2>
+```
+
+它把前置检查、编译、运行、**判决解读**串成一条，每一步失败都说明"这意味着什么、该往哪修"。
+退出码：`0` Arm 0 通过 / `1` 前置检查 / `2` 编译 / `3` 运行 / `4` verdict 是失败态（有效结果）。
+
+> `--graph-api` 必须显式给。`graph_compat.h` 用 `#ifndef` 给了默认值 1，
+> 所以**漏掉它不会报错**，只会悄悄用错的那套 API —— 那正是 A-01 要排除的情况。
+
+只想解读已有结果：`./tools/device_a02.sh --interpret graph-probe.json`
+
+等价的原始命令（不想用脚本时）：
+
+```bash
+cmake -B build -DANYINFER_WITH_CANN=ON -DANYINFER_SOC=<SoC>
 cmake --build build -j
 ctest --test-dir build --output-on-failure -R graph-probe
 ```

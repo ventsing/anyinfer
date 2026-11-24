@@ -82,7 +82,7 @@ echo "== 1. 源码卫生 =="
 step "shell 语法 (bash -n)" bash -n ci/host-only.sh
 # 上机第 0 天的采集脚本。它本身在无卡机器上跑不出内容，但语法必须永远是对的——
 # 一个在设备机上才发现有语法错的探测脚本，等于第 0 天白跑一趟。
-step "上机探测脚本语法" bash -n tools/device_probe.sh
+step "上机脚本语法" bash -n tools/device_probe.sh tools/device_a02.sh
 if compgen -G "*.sh" >/dev/null; then
     step "顶层脚本语法 (bash -n)" bash -c 'for f in *.sh; do bash -n "$f"; done'
 fi
@@ -127,7 +127,8 @@ step "abi 布局（C 侧 vs 布局产物）" \
     "$BUILD_DIR/abi-layout-test" native/abi/abi_layout.txt
 
 echo "== 4. Python 参考 oracle（C 轨道）=="
-step "unittest (toy_reference_test)" python3 -m unittest discover -s tests -p 'toy_*_test.py'
+# 发现模式放宽到全部 *_test.py：新增测试不需要同时改这里，否则很容易漏登记。
+step "unittest (tests/*_test.py)" python3 -m unittest discover -s tests -p '*_test.py'
 step "export 玩具模型 + 参考轨迹" python3 tools/toy/export.py --out "$BUILD_DIR/toy"
 step "权重哈希锁" python3 tools/toy/check_lock.py --manifest "$BUILD_DIR/toy/manifest.json"
 # 对拍器自证：参考vs参考必须过，扰动/注入NaN必须红

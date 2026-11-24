@@ -39,6 +39,7 @@ Track D 与 E-01..E-04 的 host 部分已全部做完。剩余 D-03/D-05、E-04 
 | A-04 | 若未通过，实现后备探针 A'（`graph_task_update` 等价物） | 用 ACLNN 算子（如 `aclnnFusedInferAttention`）演示指针重绑成功，并量出每步 update 开销 | A-03 判定为 `content_folded`/`empty_graph` | 3 d |
 | A-05 | verdict 接入 CI | 有卡 runner 上 `ctest -R graph-probe` 通过；失败时给出 `remedy` 字段 | A-03 | 0.5 d |
 | A-06 | 探针 v2：两序列 CoW 分叉读不同 block | 单图内两行分别指向不同物理块，且换表后各自正确；这是 Phase 2 的真实形态 | A-03 | 1 d |
+| A-07 | `ANYINFER_GRAPH_API` 正式选项化 | CMake 暴露 `-DANYINFER_GRAPH_API`（取值 1 或 2） 并转发为编译定义，不再依赖头文件 `#ifndef` 默认值；`device_a02.sh` 去掉 `-DCMAKE_CXX_FLAGS` 绕道 | — | 0.5 h |
 
 > **A-06 是 M-A 的真正终点**。A-03 只证明「单行单块」连通，A-06 才证明「同一张图里多序列指向不同 block」。
 
