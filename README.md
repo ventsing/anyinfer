@@ -48,7 +48,6 @@ docs/
   DESIGN.md            架构契约（改设计前先改这里）
   DECISIONS.md         ADR，只追加
   TODO.md              任务队列（完成判据 + 依赖）
-  TOOLCHAIN.md         本机工具链的实测版本与安装方式
 native/graph_probe/    里程碑 A：图捕获探针
   graph_probe.h          C ABI（纯 POD）
   graph_probe_kernel.cpp Ascend C kernel
@@ -117,9 +116,20 @@ tests/
 
 ## 快速开始
 
-> 本机工具链的实测版本与安装方式见 [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md)。
-> 本机 `cmake` / `ninja` 装在 `~/.local/bin`，**默认不在 PATH 上**：
-> `export PATH="$HOME/.local/bin:$PATH"`
+构建前置条件（只有版本要求，不记录本机安装过程 —— 那是环境细节，不属于仓库）：
+
+| 工具 | 要求 | 说明 |
+| --- | --- | --- |
+| CMake | ≥ 3.20 | 用 Ninja 生成器 |
+| Ninja | 任意近期版本 | |
+| C++ 编译器 | 支持 C++17 | 测试以 `-Wall -Wextra -Wpedantic -Werror` 编译 |
+| Rust | ≥ 1.85 | 仅 Rust 侧需要；无 rustc 时 CI 会显式 skip 而非静默通过 |
+
+`cmake` / `ninja` 若装在 `~/.local/bin`（pip 装法常见），需要手动加进 PATH：
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
 
 ### 1. host-only（任何机器，无需 CANN / NPU）
 
