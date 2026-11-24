@@ -57,6 +57,27 @@ step() {
     fi
 }
 
+echo "== 0. 不可自修改面（F-05）=="
+# 判据 / 参考 oracle / 语料 / 裁决权威被哈希锁定。改动必须先 seal 并留理由。
+step "不可自修改面未漂移" python3 tools/immutable.py check
+
+# 负向对照：检查器必须真的会响。否则上面那步只是在测"文件从没变过"，
+# 而锁文件写错（比如整个目录被排除掉了）也会显示为绿。
+IMM_BAK="$BUILD_DIR/immutable-negative-control.bak"
+mkdir -p "$BUILD_DIR"
+cp native/harness/bench.h "$IMM_BAK"
+printf '\n// negative control\n' >> native/harness/bench.h
+if python3 tools/immutable.py check >/dev/null 2>&1; then
+    cp "$IMM_BAK" native/harness/bench.h
+    printf '  FAIL %s\n' "负向对照：改了判据却仍被判为未漂移"
+    fail=$((fail + 1))
+else
+    cp "$IMM_BAK" native/harness/bench.h
+    printf '  ok   %s\n' "负向对照：改判据被抓到"
+    pass=$((pass + 1))
+fi
+step "恢复后重新为绿" python3 tools/immutable.py check
+
 echo "== 1. 源码卫生 =="
 step "shell 语法 (bash -n)" bash -n ci/host-only.sh
 if compgen -G "*.sh" >/dev/null; then
@@ -114,6 +135,9 @@ echo "== 4b. Rust 侧（可选）=="
 # 零依赖 crate，--offline 即可构建，不需要访问 registry。
 step_optional "cargo test --workspace" cargo \
     cargo test --workspace --offline --quiet
+
+# 工具链可见性（F-02）：只报告不阻断。仓库存的是"谁算的这个数"，不是"必须用哪个编译器"。
+step_optional "工具链可见性" python3 python3 tools/check_toolchain.py
 
 # lint 基线必须干净：RSI 自检要拿"零告警"当允许改动的先决条件，
 # 一个长期带告警的仓库没法区分"新引入的"和"一直有的"。

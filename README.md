@@ -11,12 +11,33 @@ Ascend 原生推理引擎的开发工作区。**纯 Rust 控制面 + Ascend C �
 
 ## 当前状态
 
+**这个仓库停在一个刻意的检查点上：所有能纯 host 验证的东西都已经做完并全绿，
+剩下的全部指向同一个阻塞点 —— 需要一张真实的 910B。**
+
 | 里程碑 | 内容 | 状态 |
 | --- | --- | --- |
-| **M-A** | 图捕获 + KV 间接寻址**判决** | 🚧 代码就绪，待上机验证（见下） |
-| M-B | 算子 harness（位级/FP64 门 + JSON 裁决 + 熔断） | ⬜ |
-| M-C | 玩具模型 + 逐层对拍导出 | ⬜ |
-| v0.1 | 单卡端到端生成 + 每步一次 FFI | ⬜ |
+| M-A | 图捕获 + KV 间接寻址**判决** | 🚧 代码就绪，**待上机**（唯一的阻塞点） |
+| M-B | 算子 harness（位级/FP64 门 + JSON 裁决 + 熔断） | ✅ host 部分完成（B-01..B-04b），B-05..B-07 待设备 |
+| M-C | 玩具模型 + 逐层对拍导出 | ✅ 参考侧完成（C-01..C-04），C-05/C-06 待引擎输出 |
+| 引擎骨架 v0.1 | ABI / plan / 采样 / KV | ✅ D-01/D-02/D-04 + E-01..E-04 完成；D-03/D-05 待设备 |
+
+```
+测试   111 项（Rust）+ 32 项（Python/C++）
+CI     34 个步骤全绿，clippy 零告警，rustdoc -D warnings 通过
+依赖   Rust 侧零第三方依赖；Python 侧仅标准库
+```
+
+### 已完成的部分实测什么
+
+| 已完成 | 它保证了什么 |
+| --- | --- |
+| D-01 C ABI | `sizeof` 钉死在 24 / 144 字节，零隐式 padding；一份布局产物、Rust 与 C++ **各自独立**校验 |
+| D-02 步级 plan | 11 个设备区 + 9 个 host 缓冲在 plan 期各分配一次，**稳态 4096 步零分配**（有正控制证明钩子真在数） |
+| D-04 采样器 | 决策路径不用 libm；`logprob` 与 `temperature`/`top_p` 无关（6×4×200 组逐位验证）；计数器式 RNG 使 batch 不变性成为结构性结论 |
+| E-01 块分配器 | 双释放、释放被引用块都变成 `Err`；O(1) 栈式自由队列 |
+| E-02 前缀树 | 祖先链引用计数（只有它能判断可回收）；`insert` 原子；10 万步随机负载守恒 |
+| E-03 序列布局 | 块粒度让 CoW 变成多余（ADR-014）；写侧所有权是不变量而非约定 |
+| E-04 三级回收 | 硬顺序 + 换出/抢占反序挑人 + 双窗口抢占率；容量定档 19 块被钉住 |
 
 ---
 
@@ -139,6 +160,65 @@ grep -rn "aclmdlRI" "$ASCEND_HOME_PATH/include/" | head
 
 ---
 
+## 上机第一天该跑什么（按顺序，前一步不绿就不要做下一步）
+
+这一节存在的理由：**上机时间是稀缺资源**。下面每一步都写了"不通过意味着什么"，
+因为失败时最贵的不是修，是不知道该修哪儿。
+
+### 第 0 步：确认环境（10 分钟，不写代码）
+
+```bash
+npu-smi info                      # 卡在不在，型号对不对
+echo "$ASCEND_HOME_PATH"          # 不能是空
+ls "$ASCEND_HOME_PATH/include/acl/" | head
+```
+
+**不通过意味着**：环境问题，后面所有结论都不可信。不要往下走。
+
+### 第 1 步：解决唯一的未知项（A-01）
+
+```bash
+grep -nE "StreamBeginCapture|StreamEndCapture|GraphInstantiate|GraphLaunch|GraphExec|GraphGetNodes" \
+  "$ASCEND_HOME_PATH/include/acl/"*.h
+grep -rn "aclmdlRI" "$ASCEND_HOME_PATH/include/" | head
+```
+
+按结果把 `native/graph_probe/graph_compat.h` 的 `ANYINFER_GRAPH_API` 填成 `1`（`aclrtGraph*`）
+或 `2`（`aclmdlRI*`）。**这是本仓库唯一一处靠猜会全盘皆错的地方**，所以它被刻意关在一个
+可替换的边界里 —— 填错只影响这一个头文件。
+
+### 第 2 步：编译并跑 A-02 四臂探针
+
+```bash
+cmake -B build -DANYINFER_WITH_CANN=ON -DANYINFER_SOC=ascend910b1
+cmake --build build -j
+ctest --test-dir build --output-on-failure -R graph-probe
+```
+
+看 `graph-probe.json` 的 `verdict`：
+
+- **`indirection_supported`** → 主路径成立，按 DESIGN §5 推进 Phase 2。**这是好消息。**
+- `content_folded` → 真折叠。**不要改代码去绕**，改架构：转后备 A′/B/C，并在
+  `docs/DECISIONS.md` 记 ADR —— 这条会推翻 ADR-005，是整个项目最贵的分支。
+- 其余四种 → 都是"还没测到位"，不是架构结论。按 README 上一节的表逐项排查。
+  尤其：**没有控制臂的失败是不可归因的失败**，别急着下结论。
+
+### 第 3 步：只有第 2 步绿了，才做 A-06（CoW 两行探针）
+
+A-06 是里程碑 A 真正的收尾：两个活跃序列共享前缀、分叉后各写一行、断言互不污染。
+它验证的是 E-03 在 host 上证明过的那条不变量在设备上是否也成立。
+
+### 上机前先在 host 上跑一遍
+
+```bash
+./ci/host-only.sh          # 34 步，应该全绿
+```
+
+如果这一步在设备机上红了，那是环境差异（编译器版本、glibc），
+先在移植问题上花时间，别把环境问题误判成设备问题。
+
+---
+
 ## 里程碑 A 的裁决怎么读
 
 输出一行 JSON，`verdict` 即结论：
@@ -179,7 +259,16 @@ grep -rn "aclmdlRI" "$ASCEND_HOME_PATH/include/" | head
 
 ## 工程纪律
 
+0. **检查点纪律**：能在 host 上验证的东西没验完，就不写设备代码。没编译过的设备代码
+   不是"进步"，是**未经验证的假设**，而它会在上机那天一次性全部爆掉。
 1. **时间预算**：全量重建 ≤ 10 min，smoke ≤ 60 s。RSI 的迭代频率 = 1/(构建+测量)，超预算即视为架构缺陷。
 2. **两把尺子不许混用**：位级相等只用于「同代码同输入复算」与元素级算子；`1e-3` 容差只用于跨实现 / 跨 batch 的端到端比对。
 3. **补零只 pad 不 drop**：MoE 容量溢出若丢 token，是语义改变而非数值漂移。
 4. **不可自修改面**：测量代码、golden 语料、构建与回退逻辑对 agent 只读且哈希锁定。
+5. **lint 基线必须干净**：clippy 零告警是 CI 的硬步骤。长期带告警的仓库没法区分
+   "新引入的"和"一直有的"，而 RSI 自检恰恰需要这条区分才能判断一次改动是否越界。
+
+## 许可
+
+Apache-2.0，见 `LICENSE`。代码来源、第三方依赖范围与版权状态见 `NOTICE`
+（当前版权持有方是占位符，对外分发前必须替换）。

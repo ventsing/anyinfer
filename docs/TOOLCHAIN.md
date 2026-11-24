@@ -148,3 +148,35 @@ host_decode_allocations 1 passed   （稳态 decode 不调用 Rust 分配器）
 | Ascend C kernel 编译 | 需 CANN 的 `ascendc.cmake` |
 | `graph_probe_test.cpp` 链接 | 需 `acl/acl.h` 与 `libascendcl.so` |
 | 原型仓库的 C++ / 设备侧测试 | 同上（其 Rust 测试已可跑，见上） |
+
+---
+
+## Rust 版本钉定：为什么**没有** `rust-toolchain.toml`（F-02）
+
+原本 F-02 的判据是"加 `rust-toolchain.toml` 锁定版本"。实测后否决了它。
+
+### 实测到的两个问题
+
+1. **rustup 把版本号当作独立槽位**。本机 stable 恰好就是 1.100.0，但写上
+   `channel = "1.100.0"` 之后 rustup 仍要重新下载一整套工具链（约 200 MB）。
+   本机到 static.rust-lang.org 的实测速率 **~6 KB/s**（10 分钟拉了 3.7 MB），
+   拉完要几小时；而**只要该文件存在，每次 cargo 调用都会先同步** ——
+   在拉完之前整个仓库不可构建。一个让仓库不可构建的"改进"不是改进。
+2. **它给出的是虚假的确信**。`rust-toolchain.toml` 保证"用了哪个编译器"，
+   不保证"结果可复算"。真正需要的是**可归因**：一份测量结果必须能说明
+   它是哪个编译器产的。锁版本只做到了前者的弱化版。
+
+### 采用的替代
+
+| | 做法 |
+| --- | --- |
+| 可见性 | `tools/check_toolchain.py` 打印 `rustc` / `recorded_with` / `minimum` / `target`，CI 里只报告不阻断 |
+| 强制 | `--strict` 在版本与测量基线不符时 exit 1，留给**测量**路径调用 |
+| 机读 | `--json` 供测量报告吸收版本戳 |
+| 最低版本 | `Cargo.toml` 的 `rust-version = "1.85"`（edition 2024 的硬要求），由工具检查 |
+
+### 这件事的诚实边界
+
+**离线环境下没法把版本钉定做实。** 能做的是让不匹配可见，
+并在测量路径上拒绝产出不可比较的数字。等真有两台机器要比位级结果时，
+应该做的是让每份测量 JSON 带上编译器戳，而不是指望两边编译器相同。
