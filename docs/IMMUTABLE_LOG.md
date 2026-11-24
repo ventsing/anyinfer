@@ -83,3 +83,15 @@
 理由：ADR-017：移除本机工具链记录文档
 
 - 修改 `docs/DECISIONS.md`：711c3c12b6f631de → fec01fe44192e635
+
+## 2026-11-24 17:45:25
+
+理由：910C 实机：SoC 提示改为同时覆盖 ascend910b*/ascend910_93xx，并指向 device_probe.sh
+
+- 修改 `CMakeLists.txt`：661b06954c1bd063 → ed138ca58a23cd90
+
+## 2026-11-24 17:46:34
+
+理由：新增 CI 步骤：tools/device_probe.sh 的 bash -n 语法门
+
+- 修改 `ci/host-only.sh`：863a6e0ca7a3df3b → e05ea2ac9eb47138

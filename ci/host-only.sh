@@ -80,6 +80,9 @@ step "恢复后重新为绿" python3 tools/immutable.py check
 
 echo "== 1. 源码卫生 =="
 step "shell 语法 (bash -n)" bash -n ci/host-only.sh
+# 上机第 0 天的采集脚本。它本身在无卡机器上跑不出内容，但语法必须永远是对的——
+# 一个在设备机上才发现有语法错的探测脚本，等于第 0 天白跑一趟。
+step "上机探测脚本语法" bash -n tools/device_probe.sh
 if compgen -G "*.sh" >/dev/null; then
     step "顶层脚本语法 (bash -n)" bash -c 'for f in *.sh; do bash -n "$f"; done'
 fi

@@ -13,7 +13,7 @@ include(CTest)
 # 关键设计：**没有 CANN 也能构建和测试**。
 # 原型 ../anyinfer 在缺 SOC_VERSION 时直接 FATAL_ERROR，导致纯 host 的 CI 跑不起来。
 option(ANYINFER_WITH_CANN "Build device-side targets (requires CANN toolkit)" OFF)
-set(ANYINFER_SOC "" CACHE STRING "SoC version, e.g. ascend910b1 (required when WITH_CANN)")
+set(ANYINFER_SOC "" CACHE STRING "SoC version: ascend910bN (910B/A2) or ascend910_93xx (910C/A3); required when WITH_CANN. See docs/DESIGN.md 1.3.1 and tools/device_probe.sh")
 
 # ---------------------------------------------------------------- host-only
 # 裁决逻辑不依赖任何设备，必须在任何机器上可构建、可测试。
@@ -75,7 +75,7 @@ if(NOT ANYINFER_WITH_CANN)
 endif()
 
 if(NOT ANYINFER_SOC)
-  message(FATAL_ERROR "ANYINFER_WITH_CANN=ON requires -DANYINFER_SOC=ascend910bN")
+  message(FATAL_ERROR "ANYINFER_WITH_CANN=ON requires -DANYINFER_SOC=<soc>, e.g. ascend910b1 (910B) or ascend910_93xx (910C). Run tools/device_probe.sh to find yours.")
 endif()
 
 # CANN 包路径：优先环境变量，其次常见安装位置。

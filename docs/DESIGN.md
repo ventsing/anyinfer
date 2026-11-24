@@ -36,10 +36,34 @@
 
 | 项 | 基线取值 | 影响 |
 | --- | --- | --- |
-| 卡数 | **1× 910B（64 GB）起步** | 无需 HCCL/TP/EP；所有设计可在此规模验证完 |
+| 芯片 | **1× 910C**（`ascend910_93xx`，A3 家族） | 无需 HCCL/TP/EP；所有设计可在此规模验证完 |
+| HBM | **待实测** — 走 `tools/device_probe.sh` | KV 池容量、并发上限、抢占率门槛全由它定，见 §5.2.4 |
+| block_size | **待实测**：由 SoC 定，A2/V4.1 用 128，其余 32，见 §1.3.1 | 硬编 16/32 会在某些 SoC 上让 attention 掉档 |
 | 模型 | 7B–32B dense 或小 MoE；w8a8 / w4a8 | 权重 ≤ 35 GB，"秒级启动"成立 |
 | 主 KPI | **p99 TTFT、采样吞吐（steps/s per host-core）、前缀命中率** | 决定奖励函数，见 §6 |
 | 次 KPI | 抢占率、冷启动墙钟、reload 墙钟 | 不进主排序，但设下限门 |
+
+> **上面两条"待实测"是缺口，不是设计选择。** 本表此前写的是「1× 910B（64 GB）」——
+> 那是基于一台当时并不存在的机器写下的假设，实机是 910C，HBM 与 block_size 都得从机器上读。
+> **读出来之前，任何容量类数字（KV 池大小、图桶档位、抢占率门槛 5%）都不得引用**：
+> 它们在 910B 上是猜的，在 910C 上连猜的依据都没有。
+>
+> 采集入口是 `tools/device_probe.sh`，产出 `device-probe.json`；A-01 的两项结论
+> （`ANYINFER_GRAPH_API` 与 `ANYINFER_SOC`）也从那里出。
+
+#### 1.3.1 SoC → 设备家族（决定 block_size 与编译期 SoC_NAME）
+
+| SoC 字符串 | 家族 | block_size | 编译期 `-DANYINFER_SOC=` |
+| --- | --- | --- | --- |
+| `910b` / `ascend910b1`..`b4` | A2 | 128（V4.1 同） | `ascend910bN` |
+| `910c` / `ascend910_93xx` | A3 | **待实测** | `ascend910_93xx` |
+| `310p*` | 310P | 32 | `ascend310pN` |
+| `ascend950*` | A5 | **待实测** | `ascend950xx` |
+
+映射依据是 vendored 参考实现自己的判据
+（`operators/vllm-ascend/vllm_ascend/device/hardware.py` 的 `_SOC_VERSION_TO_DEVICE_TYPE`，
+在 `main` 分支上）—— **不是我推的**。它把 `910c` 与 `ascend910_9391/9381/9372/9392/9382/9362/9363`
+一并归入 A3。A3 的 block_size 留空，因为参考实现里没有这条映射，只能在机器上量。
 
 > **未定项**：千亿级 MoE 与多卡是 v0.5 后的独立轨道。任何"为 V4 优化"的提案必须等这条轨道开启，不得提前污染单卡设计。
 

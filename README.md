@@ -154,7 +154,7 @@ g++ -std=c++17 -O2 -Wall -Wextra -I native/graph_probe \
 ### 2. 设备侧（需 CANN + 一张卡）
 
 ```bash
-cmake -B build -DANYINFER_WITH_CANN=ON -DANYINFER_SOC=ascend910b1
+cmake -B build -DANYINFER_WITH_CANN=ON -DANYINFER_SOC=<你的 SoC，见下>
 cmake --build build -j
 ./build/bin/anyinfer-graph-probe-test --output graph-probe.json
 ```
@@ -179,15 +179,24 @@ grep -rn "aclmdlRI" "$ASCEND_HOME_PATH/include/" | head
 这一节存在的理由：**上机时间是稀缺资源**。下面每一步都写了"不通过意味着什么"，
 因为失败时最贵的不是修，是不知道该修哪儿。
 
-### 第 0 步：确认环境（10 分钟，不写代码）
+### 第 0 步：量出机器身份（10 分钟，不写代码）
 
 ```bash
-npu-smi info                      # 卡在不在，型号对不对
-echo "$ASCEND_HOME_PATH"          # 不能是空
-ls "$ASCEND_HOME_PATH/include/acl/" | head
+./tools/device_probe.sh --json device-probe.json
 ```
 
-**不通过意味着**：环境问题，后面所有结论都不可信。不要往下走。
+一条命令采集：SoC 型号、HBM、CANN 版本、图 API 符号、`DataCopy` 签名、编译期 SoC 建议。
+**它不写任何引擎代码，也不会因为某项缺失而中断** —— 缺项记为 `unavailable` 继续往下采。
+
+要填进 `docs/DESIGN.md` §1.3 的是**两项**：
+
+| 探测输出 | 填到哪 |
+| --- | --- |
+| `anyinfer_soc_suggestion` | `-DANYINFER_SOC=`（910C 是 `ascend910_93xx`，不是 `ascend910bN`） |
+| `anyinfer_graph_api_suggestion` | `native/graph_probe/graph_compat.h` 的 `ANYINFER_GRAPH_API` |
+
+**不通过意味着**：`npu-smi` 不在 PATH 或 `ASCEND_HOME_PATH` 为空 —— 环境问题，
+后面所有结论都不可信。不要往下走。
 
 ### 第 1 步：解决唯一的未知项（A-01）
 
@@ -204,7 +213,7 @@ grep -rn "aclmdlRI" "$ASCEND_HOME_PATH/include/" | head
 ### 第 2 步：编译并跑 A-02 四臂探针
 
 ```bash
-cmake -B build -DANYINFER_WITH_CANN=ON -DANYINFER_SOC=ascend910b1
+cmake -B build -DANYINFER_WITH_CANN=ON -DANYINFER_SOC=<第 0 步量到的 SoC>
 cmake --build build -j
 ctest --test-dir build --output-on-failure -R graph-probe
 ```

@@ -26,9 +26,14 @@ Track D 与 E-01..E-04 的 host 部分已全部做完。剩余 D-03/D-05、E-04 
 
 ## Track A — 里程碑 A：图捕获 / 间接寻址判决
 
+> **前提（910C 实机）**：`DESIGN.md` §1.3 的包络表已改为 910C。HBM、block_size 两项是
+> **实测项不是设计选择**，由 A-00 产出。A-00 不绿之前，任何容量类数字（KV 池、图桶档位、
+> 抢占率门槛 5%）都不得引用 —— 它们是按 910B 猜的，在 910C 上没有依据。
+
 | ID | 任务 | 完成判据 | 依赖 | 估时 |
 | --- | --- | --- | --- | --- |
-| A-01 | 上机预检：确认 CANN 暴露哪套图 API | `grep` 结果写进 `DESIGN.md` §12 Q1，`ANYINFER_GRAPH_API` 已定值并编译通过 | — | 0.2 h |
+| A-00 | 量出机器身份（SoC / HBM / CANN / block_size） | `device-probe.json` 落盘，§1.3 的「待实测」两项填上实测值，`-DANYINFER_SOC=` 与 block_size 写进本文件「判决记录」 | — | 0.5 h |
+| A-01 | 上机预检：确认 CANN 暴露哪套图 API | `grep` 结果写进 `DESIGN.md` §12 Q1，`ANYINFER_GRAPH_API` 已定值并编译通过（`tools/device_probe.sh` 已代跑这两条 grep） | — | 0.2 h |
 | A-02 | 设备侧编译并跑通 Arm 0 | `anyinfer-graph-probe-test` 在 Arm 0 退出前不报 `kernel_broken`；同时确认 `DataCopy` count 语义（Q2） | A-01 | 2 h |
 | A-03 | 跑完四臂，拿到 verdict | `graph-probe.json` 落盘，`verdict` 写入本文件「判决记录」 | A-02 | 0.5 h |
 | A-04 | 若未通过，实现后备探针 A'（`graph_task_update` 等价物） | 用 ACLNN 算子（如 `aclnnFusedInferAttention`）演示指针重绑成功，并量出每步 update 开销 | A-03 判定为 `content_folded`/`empty_graph` | 3 d |
@@ -36,6 +41,26 @@ Track D 与 E-01..E-04 的 host 部分已全部做完。剩余 D-03/D-05、E-04 
 | A-06 | 探针 v2：两序列 CoW 分叉读不同 block | 单图内两行分别指向不同物理块，且换表后各自正确；这是 Phase 2 的真实形态 | A-03 | 1 d |
 
 > **A-06 是 M-A 的真正终点**。A-03 只证明「单行单块」连通，A-06 才证明「同一张图里多序列指向不同 block」。
+
+> **A-06 还有一个具体风险要专门测**：CANN 侧有已知缺陷——NPUGraph 捕获含 `topk→gather`
+> 链的解码步后，在特定分配器历史下**首次 replay** 触发越界断言（`aivec error 507011`）。
+> 这正落在 `ADR-006` 的捕获边界上（捕获延伸到 top-k + logsumexp）。含义是
+> **A-02/A-03 只测简单 kernel 不足以证明边界安全**，A-06 必须包含"首次 replay"这一轮，
+> 不能只测稳态 replay。
+
+### Track A 的跨机不可复用项
+
+910B 与 910C 不能共用结论。下表每一项都必须在每台机器上重新量：
+
+| 项目 | 能否跨机复用 | 说明 |
+| --- | --- | --- |
+| A-03 的图捕获 verdict | 大概率能，但要复验 | CANN 版本不同则 API 家族可能不同 |
+| **block_size** | **不能** | SoC 相关，A2 用 128、其余 32 只是现有证据 |
+| **图桶档位** | **不能** | 取决于 HBM 与真实 batch 分布 |
+| **容量定档（抢占率 < 5% 的门槛）** | **不能** | 仓库里那个 19 块是玩具尺度（4 并发 × 20 token），真实模型要重算 |
+| **微基准阈值** | **不能** | paired A/B 必须同机同温；跨机比 p50 是自欺 |
+| L1 位级复算 | 能 | 同代码同输入，但要同 CANN 版本 |
+| L4 跨实现容差 1e-3 | 能 | 「两把尺子」里唯一可跨机的那把 |
 
 ---
 

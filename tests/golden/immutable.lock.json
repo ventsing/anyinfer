@@ -21,8 +21,8 @@
     "tests/toy_reference_test.py"
   ],
   "files": {
-    "CMakeLists.txt": "661b06954c1bd063b11446a236aa634a6559780c5a085b66b7f3cf56a3dae2ec",
-    "ci/host-only.sh": "863a6e0ca7a3df3b949b46d7537ce9cb293745d7cf8ffdd63c500380db8f6ae6",
+    "CMakeLists.txt": "ed138ca58a23cd903b4fc0992b63c473cd17d764f4e9e7fd2c40ce7983302632",
+    "ci/host-only.sh": "e05ea2ac9eb47138e0c5cde6bf64cb4fe40c5ba81820cb87ba3f81ec1143fc58",
     "docs/DECISIONS.md": "fec01fe44192e635aba24171388dcbb8831f2fde34ed57ff2d8fde10bcbfb321",
     "native/abi/abi_layout.txt": "79fd3318518b72c0493aa9fb17aaeaedd94eedc10630c42abf3af6f34a7af584",
     "native/harness/accept.h": "03e5a90cb861f664ea445e2c6c735ff6e3f67da037824a274aabd16dad8403fe",
