@@ -42,10 +42,21 @@ native/harness/        算子验收 harness（B-01/B-02/B-03，纯 host）
   report.h               共用 Gate 语义与 JSON 形状
 ci/
   host-only.sh           无 CANN/NPU/Rust 也能全绿的 CI 入口
+tools/toy/               玩具模型与 FP64 参考 oracle（纯标准库，无 numpy/torch）
+  safetensors_io.py      容器读写（引擎要实现的就是这个格式）
+  model.py               模型规格 + FP64 参考前向 + 逐层激活捕获
+  export.py              产出权重 / 参考轨迹 / manifest（.part 后原子改名）
+  compare.py             对拍执行器（与 C++ Gate 同名同归因顺序）
+  selftest.py            对拍器自证：参考vs参考必过、扰动/NaN 必红
+  check_lock.py          权重哈希锁校验
+  perturb.py             制造负向样本
 tests/
+  golden/toy_corpus.json       语料 + 容差表
+  golden/toy_manifest.lock.json 权重哈希锁（只锁权重，理由见 check_lock.py）
   graph_probe_logic_test.cpp  裁决逻辑自测（无需 NPU，CI 必跑）
   harness_exact_test.cpp      精确性判据 + 正/负向对照
   harness_compare_test.cpp    L1/L2 比对器的语义边界
+  toy_reference_test.py       参考实现/容器/对拍器（26 项）
 ```
 
 ---

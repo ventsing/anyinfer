@@ -67,14 +67,21 @@ step "graph_probe 裁决逻辑" "$BUILD_DIR/graph-probe-logic-test"
 step "harness exact（含正/负向对照）" "$BUILD_DIR/harness-exact-test"
 step "harness compare" "$BUILD_DIR/harness-compare-test"
 
+echo "== 4. Python 参考 oracle（C 轨道）=="
+step "unittest (toy_reference_test)" python3 -m unittest discover -s tests -p 'toy_*_test.py'
+step "export 玩具模型 + 参考轨迹" python3 tools/toy/export.py --out "$BUILD_DIR/toy"
+step "权重哈希锁" python3 tools/toy/check_lock.py --manifest "$BUILD_DIR/toy/manifest.json"
+# 对拍器自证：参考vs参考必须过，扰动/注入NaN必须红
+step "对拍器自证有效" python3 tools/toy/selftest.py --dir "$BUILD_DIR/toy"
+
 if [ "$QUICK" -eq 0 ]; then
-    echo "== 4. cmake host-only 构建 =="
+    echo "== 5. cmake host-only 构建 =="
     step "configure (WITH_CANN=OFF)" cmake -S . -B "$BUILD_DIR/cmake" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release
     step "build" cmake --build "$BUILD_DIR/cmake"
     step "ctest" ctest --test-dir "$BUILD_DIR/cmake" --output-on-failure
 
-    echo "== 5. 负向用例：CANN 守卫必须报错 =="
+    echo "== 6. 负向用例：CANN 守卫必须报错 =="
     # 这两个用例"失败"才是正确行为，故用 ! 取反
     step "缺 SOC 必须 FATAL" bash -c \
         '! cmake -S . -B /tmp/anyinfer-ci-nosoc -G Ninja -DANYINFER_WITH_CANN=ON >/dev/null 2>&1'

@@ -188,6 +188,13 @@ T_reload = W / BW + T_reprompt
 | L3 路由一致性 | expert 选择集合逐 token 相同 | MoE router / grouped GEMM |
 | L4 端到端 | token 序列一致 + logprob 容差 | 全链路 |
 
+**L2/L4 的 oracle**：`tools/toy/` 的 FP64 参考实现（`model.py`）+ `compare.py` 对拍器。
+玩具模型与真实 decoder 同构（rmsnorm / qkv / RoPE / causal attention / swiglu / tied lm_head），
+权重是 dyadic（`k*2^-7`，fp32 精确），所以"对不上"能直接定位到某一层、某一 token。
+
+**RoPE 只能走 L2**：旋转角是超越数，`cos/sin` 的结果不可能是 dyadic，
+因此含 RoPE 的层永远不满足 L1 的位级判据。这条在 `tools/toy/model.py` 里有测试断言。
+
 **L1 前提**：输入必须是"乘积与求和可精确表示"的有界二进制有理数（原型 `reference.h:23-35` 的做法）。**没有这个前提，位级相等不成立，不许声称。**
 
 **L1 的仲裁者**：`native/harness/exact.h` —— `product_is_exact` / `sum_is_exact` / `dot_is_exact`。
