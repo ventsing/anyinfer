@@ -34,6 +34,11 @@ add_library(anyinfer_harness INTERFACE)
 target_include_directories(anyinfer_harness INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/native/harness")
 
+# C ABI 边界（D-01）。头文件同时是 C11 与 C++ 可用的。
+add_library(anyinfer_abi INTERFACE)
+target_include_directories(anyinfer_abi INTERFACE
+  "${CMAKE_CURRENT_SOURCE_DIR}/native/abi")
+
 # 裁决器：全流程唯一的裁决权威（详见 native/harness/accept.h）。
 # 它不测量任何东西，只聚合，所以无条件构建、不需要 CANN。
 add_executable(anyinfer-accept tools/accept/accept_main.cpp)
@@ -55,6 +60,12 @@ if(BUILD_TESTING)
   add_executable(anyinfer-harness-accept-test tests/harness_accept_test.cpp)
   target_link_libraries(anyinfer-harness-accept-test PRIVATE anyinfer_harness)
   add_test(NAME harness-accept COMMAND anyinfer-harness-accept-test)
+
+  # ABI 布局：C 侧对着 native/abi/abi_layout.txt 校验（Rust 侧另有独立校验）
+  add_executable(anyinfer-abi-layout-test tests/abi_layout_test.cpp)
+  target_link_libraries(anyinfer-abi-layout-test PRIVATE anyinfer_abi)
+  add_test(NAME abi-layout COMMAND anyinfer-abi-layout-test
+           "${CMAKE_CURRENT_SOURCE_DIR}/native/abi/abi_layout.txt")
 endif()
 
 # ---------------------------------------------------------------- device

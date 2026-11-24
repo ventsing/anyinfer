@@ -136,6 +136,30 @@ bitmask（128 k bits = 16 KB）+ 设备侧 top-k/logsumexp 把它压到 **16 KB*
 
 **硬约束：捕获区内只允许读固定地址的设备缓冲，不得依赖任何 step 级 host 标量。** 标量会在捕获时被固化（`graph_probe_test.cpp` 的 Arm 1 就是用来证明这一点的）。
 
+### 4.5 C ABI 边界（`native/abi/anyinfer.h`，D-01）
+
+边界上只有 `AnyInferStep`（一 step 的全部输入输出）与 `AnyInferStatus`（失败信息，
+含 `failed_op_id`）。后者是 RSI 闭环的关键：不能确定"哪一层的哪个算子算错了"，
+误差就无法归因到具体的优化动作，闭环退化成"整体重跑一遍试试"。
+
+三条自缚规则，都为了消除"编译期都过、运行时读到别的字段"这类最难查的错误：
+
+| 规则 | 做法 |
+| --- | --- |
+| 不用 enum 表示状态码与哨兵 | `int32_t` + 具名常量 / 宏。enum 的底层类型是实现定义的，这层猜测没必要保留 |
+| 结构体里零隐式 padding | 字段顺序排到首尾相接，`offsetof` 连续性被两侧测试断言；padding 字节未定义，会破坏"两次构造逐位相等" |
+| sizeof 硬钉住 | 加字段必须同时改 C 常量、`abi_layout.txt`、Rust 定义。这是**刻意制造的摩擦** |
+
+**验证链是一份产物、两边独立校验**：
+
+```
+Rust 定义 ──生成──> native/abi/abi_layout.txt <──解析校验── C 定义
+```
+
+`abi_layout.txt` 是纯文本，所以"布局变了"在 code review 里直接可见。
+两侧各自对着它断言 size/align/offset 与"无 padding"，任何一侧漂移都被抓到。
+ABI 只支持 LP64（指针 8 字节），32 位目标直接编译失败而不是悄悄错位。
+
 ---
 
 ## 5. 内存模型

@@ -35,6 +35,9 @@ native/graph_probe/    里程碑 A：图捕获探针
   graph_compat.h         图 API 兼容层（唯一的不确定项）
   graph_probe_verdict.h  四臂 -> 裁决映射（host 可测）
   graph_probe_test.cpp   四臂驱动
+native/abi/            C ABI 边界（D-01）
+  anyinfer.h            AnyInferStep / AnyInferStatus（C11 + C++ 双可用，POD only）
+  abi_layout.txt        布局产物：Rust 生成，C 与 Rust 各自独立校验
 native/harness/        算子验收 harness（B-01..B-04b，纯 host）
   exact.h                有界二进制有理数 + 精确性判据（L1 的仲裁者）
   bit_exact.h            L1 位级比对
@@ -42,6 +45,10 @@ native/harness/        算子验收 harness（B-01..B-04b，纯 host）
   report.h               共用 Gate 语义与 JSON 形状
   bench.h                微基准协议（ABBA 配对 + 符号检验 + 退化分位数标记）
   accept.h               算子晋升裁决（三态门，NotRun 阻断晋升）
+crates/anyinfer-abi/   与 anyinfer.h 一一对应的 Rust 定义（零依赖）
+  src/lib.rs            POD 结构体 + 布局报告生成
+  src/bin/abi_dump.rs   生成 abi_layout.txt
+  tests/                布局与产物一致性（逐行指出漂移）
 ci/
   host-only.sh           无 CANN/NPU/Rust 也能全绿的 CI 入口
 tools/
@@ -63,6 +70,7 @@ tests/
   harness_compare_test.cpp    L1/L2 比对器的语义边界
   harness_bench_test.cpp      微基准协议（注入假时钟，全确定性）
   harness_accept_test.cpp     裁决策略（默认 NotRun、三态优先级、守护线）
+  abi_layout_test.cpp         C 侧布局 + 零隐式 padding（对着 abi_layout.txt）
   toy_reference_test.py       参考实现/容器/对拍器（26 项）
 ```
 

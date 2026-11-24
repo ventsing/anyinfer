@@ -27,6 +27,22 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 BUILD_DIR="build/ci"
 pass=0
 fail=0
+skipped=0
+
+# 可选步骤：工具不在就报 skip，不计入失败。
+# F-01 的契约是"没有 CANN/NPU/Rust 也能全绿"，所以 Rust 检查只能是可选而非必需 ——
+# 但必须**显式**打印 skip，不能悄悄跳过（悄悄跳过 = 永远绿的门）。
+step_optional() {
+    local name="$1"
+    local tool="$2"
+    shift 2
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        printf '  skip %s（缺 %s）\n' "$name" "$tool"
+        skipped=$((skipped + 1))
+        return 0
+    fi
+    step "$name" "$@"
+}
 
 step() {
     local name="$1"
@@ -67,6 +83,15 @@ step "harness bench" \
 step "harness accept" \
     "$CXX" "${CXXFLAGS[@]}" -I native/harness \
     tests/harness_accept_test.cpp -o "$BUILD_DIR/harness-accept-test"
+step "abi layout" \
+    "$CXX" "${CXXFLAGS[@]}" -I native/abi \
+    tests/abi_layout_test.cpp -o "$BUILD_DIR/abi-layout-test"
+# 头文件必须能被 C11 直接包含（不是只有 C++ 能用）
+printf '#include "anyinfer.h"\nint main(void){ AnyInferStep s = {0}; (void)s; return 0; }\n' \
+    > "$BUILD_DIR/abi-c11-probe.c"
+step "abi 头文件 C11 可包含" \
+    "${CC:-cc}" -std=c11 -Werror -Wall -Wextra -Wpedantic -I native/abi \
+    -fsyntax-only "$BUILD_DIR/abi-c11-probe.c"
 
 echo "== 3. 运行测试 =="
 step "graph_probe 裁决逻辑" "$BUILD_DIR/graph-probe-logic-test"
@@ -74,6 +99,8 @@ step "harness exact（含正/负向对照）" "$BUILD_DIR/harness-exact-test"
 step "harness compare" "$BUILD_DIR/harness-compare-test"
 step "harness bench（注入假时钟）" "$BUILD_DIR/harness-bench-test"
 step "harness accept（NotRun 必须阻断晋升）" "$BUILD_DIR/harness-accept-test"
+step "abi 布局（C 侧 vs 布局产物）" \
+    "$BUILD_DIR/abi-layout-test" native/abi/abi_layout.txt
 
 echo "== 4. Python 参考 oracle（C 轨道）=="
 step "unittest (toy_reference_test)" python3 -m unittest discover -s tests -p 'toy_*_test.py'
@@ -81,6 +108,12 @@ step "export 玩具模型 + 参考轨迹" python3 tools/toy/export.py --out "$BU
 step "权重哈希锁" python3 tools/toy/check_lock.py --manifest "$BUILD_DIR/toy/manifest.json"
 # 对拍器自证：参考vs参考必须过，扰动/注入NaN必须红
 step "对拍器自证有效" python3 tools/toy/selftest.py --dir "$BUILD_DIR/toy"
+
+echo "== 4b. Rust ABI 侧（可选）=="
+# Rust 与 C 各自对着 native/abi/abi_layout.txt 校验，任何一侧漂移都会被抓到。
+# 零依赖 crate，--offline 即可构建，不需要访问 registry。
+step_optional "cargo test -p anyinfer-abi" cargo \
+    cargo test -p anyinfer-abi --offline --quiet
 
 if [ "$QUICK" -eq 0 ]; then
     echo "== 5. cmake host-only 构建 =="
@@ -157,6 +190,6 @@ if report["verdict"] != "pass" or report["promotable"] != "true":
 fi
 
 echo
-printf '通过 %d 项，失败 %d 项\n' "$pass" "$fail"
+printf '通过 %d 项，失败 %d 项，跳过 %d 项\n' "$pass" "$fail" "$skipped"
 [ "$fail" -eq 0 ] || exit 1
 echo "host-only CI：全部通过"

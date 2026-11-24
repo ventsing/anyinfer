@@ -20,7 +20,7 @@ C 轨道（本机可推进）：C-01 ✅ ─> C-02 ✅ ─> C-03 ✅ ─> C-04 �
 ```
 
 **Track B 的 host 侧已全部完成**（B-01..B-04b）。剩余 B-05/B-06/B-07 都需要上卡。
-下一步可推进：D-01（Rust workspace，纯 host）或 A-01（需编译机）；C-05 需等 D-03。
+下一步可推进：D-02（plan 阶段零分配）/ D-04（采样器），纯 host 可测；A-01 需编译机；C-05 需等 D-03。
 
 ---
 
@@ -75,7 +75,7 @@ C 轨道（本机可推进）：C-01 ✅ ─> C-02 ✅ ─> C-03 ✅ ─> C-04 �
 
 | ID | 任务 | 完成判据 | 依赖 | 估时 |
 | --- | --- | --- | --- | --- |
-| D-01 | Cargo workspace + FFI 层 | `AnyInferStep` / `AnyInferStatus` 定稿（含 `failed_op_id`）；C 侧 `static_assert` 尺寸与对齐 | — | 2 d |
+| D-01 | ✅ Cargo workspace + FFI 层 | `native/abi/anyinfer.h`（C11/C++ 双可用）+ `crates/anyinfer-abi`；`AnyInferStep` / `AnyInferStatus` 定稿含 `failed_op_id`；sizeof 硬钉（24/144）；布局产物 `abi_layout.txt` 由两侧独立校验；C 侧断言零隐式 padding | — | 完成 |
 | D-02 | plan 阶段一次性分配 | 零分配断言（沿用原型 `tests/host_decode_allocations.rs` 手法） | D-01 | 1 d |
 | D-03 | prefill 逐 op 序列 + 缓存 `aclOpExecutor` | 复用 executor 时 `aclTensor` 句柄一并缓存（否则 use-after-free）；重复下发位级一致 | D-01 | 3 d |
 | D-04 | 采样器：确定性 + top-k/top-p + logprob 导出 | 同 seed 同轨迹；logprob 用 fp32 且归约顺序与训练端一致 | D-01 | 2 d |
@@ -102,7 +102,7 @@ C 轨道（本机可推进）：C-01 ✅ ─> C-02 ✅ ─> C-03 ✅ ─> C-04 �
 | --- | --- | --- | --- | --- |
 | F-00 | ✅ 本机工具链 + host-only 构建链 | cmake 4.4.5 / ninja 1.13.2 已装；`cmake -S . -B build -G Ninja` + `ctest` 全绿；两条负向用例（缺 SOC / 无 CANN）按预期报错。见 `docs/TOOLCHAIN.md` | — | 完成 |
 | F-01 | ✅ CI：host-only 必跑 | `ci/host-only.sh` 12 项全绿：`bash -n` + 三个测试以 `-Werror -Wpedantic` 编译并运行 + cmake/ctest + 两条 CANN 守卫负向用例 | F-00 | 完成 |
-| F-02 | `rust-toolchain.toml` + `rust-version` | 锁定版本；CI 用同一版本 | D-01 | 0.2 d |
+| F-02 | `rust-toolchain.toml`（`rust-version = "1.85"` 已在 workspace 定） | 锁定版本；CI 用同一版本 | D-01 | 0.2 d |
 | F-03 | 时间预算守护 | 脚本量测全量重建与 smoke，超 10 min / 60 s 直接失败 | B-06 | 0.5 d |
 | F-04 | LICENSE / NOTICE 决策 | 明确 derive-from-Apache-2.0（保留 notices）还是 clean-room；落成文件 | — | 0.2 d |
 | F-05 | 不可自修改面清单 | 列出测量代码/语料/构建/回退逻辑，加哈希锁定与写保护检查 | B-05 | 1 d |
@@ -140,6 +140,7 @@ C 轨道（本机可推进）：C-01 ✅ ─> C-02 ✅ ─> C-03 ✅ ─> C-04 �
 
 | 日期 | 里程碑 | 判决 | 依据 |
 | --- | --- | --- | --- |
+| 2026-11-24 | D-01 | ✅ 通过 | 布局产物单一来源、两侧独立校验：C 侧改字段顺序 -> 精确报出两个字段的偏移；改产物 size -> Rust 报出行号、C 侧同时报出 trailing padding；缺 cargo 时显式 skip 而非静默跳过 |
 | 2026-11-24 | B-04b | ✅ 通过 | 26 项 accept 断言 + CI 端到端 8 步；缺证据退 2、失败退 1、用法错误退 64（刻意与 2 分离）；参考坏掉时归因指向 oracle |
 | 2026-11-24 | B-04 | ✅ 通过 | 注入假时钟后协议完全确定：分组除算、预热不计入、ABBA 顺序、7:0 -> p=0.015625 均被逐位断言；4:3 噪声与全平局均判 `indistinguishable`（负向对照） |
 | 2026-11-24 | C-01…C-04 | ✅ 通过 | 26 项 unittest 全绿；export 两次哈希一致；自比对 pass、+0.5% 扰动与 NaN 注入均被精确归因（只报被改的张量） |
