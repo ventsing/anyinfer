@@ -84,11 +84,15 @@ crates/anyinfer-abi/   与 anyinfer.h 一一对应的 Rust 定义（零依赖）
   src/lib.rs            POD 结构体 + 布局报告生成
   src/bin/abi_dump.rs   生成 abi_layout.txt
   tests/                布局与产物一致性（逐行指出漂移）
+LICENSE / NOTICE         Apache-2.0；来源与第三方依赖范围见 NOTICE
 ci/
   host-only.sh           无 CANN/NPU/Rust 也能全绿的 CI 入口
+Cargo.toml               workspace 根：四个零依赖 crate
 tools/
   accept.py              一次算子验收的单命令入口（只提取，裁决交给 C++）
   accept/accept_main.cpp 裁决 CLI：全流程唯一的裁决权威
+  immutable.py           不可自修改面哈希锁（F-05，见 ADR-016 前的 F-05 记录）
+  check_toolchain.py     工具链可归因检查（F-02，见 ADR-016）
 tools/toy/               玩具模型与 FP64 参考 oracle（纯标准库，无 numpy/torch）
   safetensors_io.py      容器读写（引擎要实现的就是这个格式）
   model.py               模型规格 + FP64 参考前向 + 逐层激活捕获

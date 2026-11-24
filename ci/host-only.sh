@@ -141,6 +141,10 @@ step_optional "工具链可见性" python3 python3 tools/check_toolchain.py
 
 # lint 基线必须干净：RSI 自检要拿"零告警"当允许改动的先决条件，
 # 一个长期带告警的仓库没法区分"新引入的"和"一直有的"。
+# 格式与 lint 一起构成"允许改动的先决条件"。格式不统一会让 diff 里混进无关噪声，
+# 而 RSI 自检要靠 diff 判断一次改动动了什么 —— 噪声就是信号丢失。
+step_optional "cargo fmt（无差异）" cargo \
+    cargo fmt --all --check
 step_optional "cargo clippy（零告警）" cargo \
     cargo clippy --workspace --offline --all-targets
 if command -v cargo >/dev/null 2>&1; then

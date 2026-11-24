@@ -65,3 +65,15 @@
 理由：修正 CI 调用：step_optional 需要把解释器同时作为工具名与命令首词
 
 - 修改 `ci/host-only.sh`：d0febbeda677d225 → c264edc31fb56b91
+
+## 2026-11-24 16:47:29
+
+理由：CI 增加 cargo fmt --check 与 tools/ 新文件说明
+
+- 修改 `ci/host-only.sh`：c264edc31fb56b91 → 863a6e0ca7a3df3b
+
+## 2026-11-24 16:48:24
+
+理由：更新 F-01 的 CI 步骤数与整理记录
+
+（无变化，仅重新确认）

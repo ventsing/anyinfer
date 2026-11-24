@@ -102,7 +102,7 @@ Track D 与 E-01..E-04 的 host 部分已全部做完。剩余 D-03/D-05、E-04 
 | ID | 任务 | 完成判据 | 依赖 | 估时 |
 | --- | --- | --- | --- | --- |
 | F-00 | ✅ 本机工具链 + host-only 构建链 | cmake 4.4.5 / ninja 1.13.2 已装；`cmake -S . -B build -G Ninja` + `ctest` 全绿；两条负向用例（缺 SOC / 无 CANN）按预期报错。见 `docs/TOOLCHAIN.md` | — | 完成 |
-| F-01 | ✅ CI：host-only 必跑 | `ci/host-only.sh` 12 项全绿：`bash -n` + 三个测试以 `-Werror -Wpedantic` 编译并运行 + cmake/ctest + 两条 CANN 守卫负向用例 | F-00 | 完成 |
+| F-01 | ✅ CI：host-only 必跑 | `ci/host-only.sh` **39 项全绿**：不可自修改面（含改/增/删三类负向对照）+ `bash -n` + C++ 测试以 `-Werror -Wpedantic` 编译并运行 + cmake/ctest + 两条 CANN 守卫负向用例 + Rust 侧 fmt（无差异）/ clippy（零告警）/ 全量测试 + 工具链可见性 | F-00 | 完成 |
 | F-02 | ✅ 工具链可归因（**否决了 rust-toolchain.toml**） | `tools/check_toolchain.py`：默认报告、`--strict` 供测量路径、`--json` 供报告吸收版本戳；CI 只报告不阻断。否决理由见 ADR-016（该文件会让离线网络下的仓库不可构建） | D-01 | 完成 |
 | F-03 | 时间预算守护 | 脚本量测全量重建与 smoke，超 10 min / 60 s 直接失败 | B-06 | 0.5 d |
 | F-04 | ✅ LICENSE / NOTICE | Apache-2.0 正文 + NOTICE：声明本仓库原创、列出参考实现的边界、指出 Rust 侧零第三方依赖。**版权持有方仍是占位符**，对外分发前必须替换 | — | 完成（待定主体） |
@@ -141,6 +141,7 @@ Track D 与 E-01..E-04 的 host 部分已全部做完。剩余 D-03/D-05、E-04 
 
 | 日期 | 里程碑 | 判决 | 依据 |
 | --- | --- | --- | --- |
+| 2026-11-24 | 代码整理 | ✅ 完成 | rustfmt 全量应用（13 文件 +563/−168，纯机械）；`cargo fmt --check` 进 CI 成为与 clippy 并列的"允许改动的先决条件"（格式噪声会让 RSI 靠 diff 判断改动时丢失信号）；清掉仿真里 `let _ = freed` 这类重写遗留；README 布局表补齐 4 个新条目 |
 | 2026-11-24 | F-05 | ✅ 通过 | `tools/immutable.py` 锁 28 个文件，含执行器自身；三类漂移（改/增/删）各有负向对照。**自我验证**：给 CI 加检查这一步本身被检查器抓到，按流程 seal 才转绿。边界写明：仓库内的锁只能留痕，不能强制 |
 | 2026-11-24 | F-04 | ✅ 通过（待定主体） | Apache-2.0 正文 + NOTICE；Rust 侧零第三方依赖 ∴ 零传递许可面。版权持有方为占位符，对外分发前必须替换 —— 占位符上的版权声明没有意义 |
 | 2026-11-24 | F-02 | ✅ 换方案 | 否决 `rust-toolchain.toml`：rustup 把版本当独立槽位，本机网络 ~6 KB/s 拉不动，且该文件让每次 cargo 调用先同步 ⇒ 仓库不可构建。改为"可归因"：报告 + `--strict` + 版本戳。见 ADR-016 |
