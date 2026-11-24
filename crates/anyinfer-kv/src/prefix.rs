@@ -275,7 +275,7 @@ impl PrefixCache {
         blocks: Vec<Block>,
         parent: NodeId,
     ) -> NodeId {
-        let node = if let Some(slot) = self.free_slots.pop() {
+        if let Some(slot) = self.free_slots.pop() {
             let slot_index = slot as usize;
             self.nodes[slot_index] = Node::empty(Some(parent));
             self.nodes[slot_index].tokens = tokens;
@@ -287,8 +287,7 @@ impl PrefixCache {
             fresh.blocks = blocks;
             self.nodes.push(fresh);
             (self.nodes.len() - 1) as NodeId
-        };
-        node
+        }
     }
 
     fn touch_path(&mut self, node: NodeId) {
@@ -372,6 +371,26 @@ impl PrefixCache {
             nodes: ids.len() as u32,
             blocks: block_count,
         })
+    }
+
+    /// 当前可驱逐的块数（与 [`Self::evict_leaf_lru`] 同一判据，但**不动手**）。
+    ///
+    /// 回收决策需要"动手之前先知道能腾出多少"，否则只能一边试一边猜。
+    pub fn evictable_blocks(&self) -> u32 {
+        self.nodes
+            .iter()
+            .enumerate()
+            .filter(|(index, entry)| {
+                entry.alive
+                    && *index != ROOT as usize
+                    && entry.children.is_empty()
+                    && entry
+                        .blocks
+                        .iter()
+                        .all(|&block| self.arena.refcount(block) == 0)
+            })
+            .map(|(_, entry)| entry.blocks.len() as u32)
+            .sum()
     }
 
     /// 按逻辑 LRU 回收一个**叶**节点（DESIGN §5.2 第 1 级）。

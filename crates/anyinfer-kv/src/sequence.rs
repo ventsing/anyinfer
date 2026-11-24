@@ -453,7 +453,7 @@ mod tests {
                     }
                 }
                 // 生成若干 token（占 3/8，保证写入量足够）
-                3 | 4 | 5 => {
+                3..=5 => {
                     let count = 1 + (next() % 5) as usize;
                     for _ in 0..count {
                         let Some(index) = (!live.is_empty()).then(|| (next() as usize) % live.len()) else {

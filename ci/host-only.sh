@@ -115,6 +115,15 @@ echo "== 4b. Rust 侧（可选）=="
 step_optional "cargo test --workspace" cargo \
     cargo test --workspace --offline --quiet
 
+# lint 基线必须干净：RSI 自检要拿"零告警"当允许改动的先决条件，
+# 一个长期带告警的仓库没法区分"新引入的"和"一直有的"。
+step_optional "cargo clippy（零告警）" cargo \
+    cargo clippy --workspace --offline --all-targets
+if command -v cargo >/dev/null 2>&1; then
+    LINT=$(cargo clippy --workspace --offline --all-targets 2>&1 | grep -cE "^warning: [a-z]" || true)
+    step "clippy 告警数为 0" test "$LINT" = "0"
+fi
+
 if [ "$QUICK" -eq 0 ]; then
     echo "== 5. cmake host-only 构建 =="
     step "configure (WITH_CANN=OFF)" cmake -S . -B "$BUILD_DIR/cmake" -G Ninja \

@@ -119,7 +119,10 @@ fn the_allocation_hook_actually_counts() {
     assert_eq!(observed.allocate, 1, "hook did not see the allocation");
     assert_eq!(observed.reallocate, 0);
 
-    // capacity 1 装得下 1 个元素，第二个才撑大 —— 所以这里必须是两次 push
+    // capacity 1 装得下 1 个元素，第二个才撑大 —— 所以这里必须是两次 push。
+    // clippy 会建议换成 vec![1, 2]，但那恰好抹掉了"第二次 push 触发 realloc"这件事，
+    // 而这件事就是本用例要验的东西。
+    #[allow(clippy::vec_init_then_push)]
     let observed = measure(|| {
         let mut v: Vec<u8> = Vec::with_capacity(1);
         v.push(1);
