@@ -31,6 +31,7 @@
 //! （见 `ancestor_refcount_is_what_makes_reclaim_safe`）。
 
 use crate::arena::{Arena, ArenaError, Block};
+use crate::sequence::{KvError, KvSequence};
 use std::collections::BTreeMap;
 
 pub type NodeId = u32;
@@ -400,6 +401,54 @@ impl PrefixCache {
             None => Ok(None),
             Some((_, node)) => Ok(Some(self.evict_subtree(node)?)),
         }
+    }
+
+    /// 让一个序列命中缓存节点：对整条路径加引用，并给出它的 KV 布局。
+    ///
+    /// `capacity` 是序列总长度上限（分页式 KV 必须预留块表列数）。
+    pub fn fork(&mut self, node: NodeId, capacity: usize) -> Result<KvSequence, KvError> {
+        let refs = self.attach(node)?;
+        let shared = refs.blocks().to_vec();
+        let shared_tokens = shared.len() * self.block_size() as usize;
+        if capacity < shared_tokens {
+            // 出错也必须把刚拿到的引用还回去，否则计数永远回不了零
+            self.detach(refs);
+            return Err(KvError::CapacityBelowPrefix {
+                capacity,
+                shared_tokens,
+            });
+        }
+        Ok(KvSequence {
+            shared,
+            shared_tokens,
+            private: Vec::new(),
+            len: shared_tokens,
+            capacity,
+            refs: Some(refs),
+        })
+    }
+
+    /// 与 [`Self::fork`] 配平：归还私有块并释放共享前缀的引用。
+    pub fn join(&mut self, mut seq: KvSequence) -> Result<(), KvError> {
+        // 私有块由序列独占（refcount 恒为 1），先减引用再释放
+        for &block in &seq.private {
+            self.arena.unretain(block)?;
+            self.arena.release(block)?;
+        }
+        seq.private.clear();
+        if let Some(refs) = seq.refs.take() {
+            self.detach(refs);
+        }
+        Ok(())
+    }
+
+    /// 测试专用：把 arena 借出去，好让 `KvSequence::append_token` 能申请块。
+    ///
+    /// 刻意标 `#[cfg(test)]`：正常调用方不许绕过缓存直接动 arena，
+    /// 否则"引用计数 == 活跃序列数"这条不变量就没法维持了。
+    #[cfg(test)]
+    pub(crate) fn arena_mut_for_test(&mut self) -> &mut Arena {
+        &mut self.arena
     }
 
     /// 把一棵子树里的所有块号按 DFS 顺序列出来。供 E-05 拼块表用。

@@ -45,9 +45,10 @@ native/harness/        算子验收 harness（B-01..B-04b，纯 host）
   report.h               共用 Gate 语义与 JSON 形状
   bench.h                微基准协议（ABBA 配对 + 符号检验 + 退化分位数标记）
   accept.h               算子晋升裁决（三态门，NotRun 阻断晋升）
-crates/anyinfer-kv/       KV 内存（E-01/E-02，零依赖）
+crates/anyinfer-kv/       KV 内存（E-01/E-02/E-03，零依赖）
   src/arena.rs          O(1) 栈式自由队列 + 引用计数（双释放/释放被引用块都变成 Err）
   src/prefix.rs         块粒度前缀树 + 祖先链引用计数 + 子树/叶 LRU 回收
+  src/sequence.rs       序列 KV 布局：共享前缀（只读）+ 独占尾巴（见 ADR-014）
 crates/anyinfer-plan/     步级 plan（D-02，零依赖）
   src/lib.rs            PlanConfig / RegionSource / Plan::new（唯一发生分配的地方）
   src/staging.rs        定长 staging + prepare_decode_step（先全校验再写）
