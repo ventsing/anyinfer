@@ -34,6 +34,11 @@ add_library(anyinfer_harness INTERFACE)
 target_include_directories(anyinfer_harness INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/native/harness")
 
+# 裁决器：全流程唯一的裁决权威（详见 native/harness/accept.h）。
+# 它不测量任何东西，只聚合，所以无条件构建、不需要 CANN。
+add_executable(anyinfer-accept tools/accept/accept_main.cpp)
+target_link_libraries(anyinfer-accept PRIVATE anyinfer_harness)
+
 if(BUILD_TESTING)
   add_executable(anyinfer-harness-exact-test tests/harness_exact_test.cpp)
   target_link_libraries(anyinfer-harness-exact-test PRIVATE anyinfer_harness)
@@ -46,6 +51,10 @@ if(BUILD_TESTING)
   add_executable(anyinfer-harness-bench-test tests/harness_bench_test.cpp)
   target_link_libraries(anyinfer-harness-bench-test PRIVATE anyinfer_harness)
   add_test(NAME harness-bench COMMAND anyinfer-harness-bench-test)
+
+  add_executable(anyinfer-harness-accept-test tests/harness_accept_test.cpp)
+  target_link_libraries(anyinfer-harness-accept-test PRIVATE anyinfer_harness)
+  add_test(NAME harness-accept COMMAND anyinfer-harness-accept-test)
 endif()
 
 # ---------------------------------------------------------------- device

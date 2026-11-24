@@ -35,14 +35,18 @@ native/graph_probe/    里程碑 A：图捕获探针
   graph_compat.h         图 API 兼容层（唯一的不确定项）
   graph_probe_verdict.h  四臂 -> 裁决映射（host 可测）
   graph_probe_test.cpp   四臂驱动
-native/harness/        算子验收 harness（B-01..B-04，纯 host）
+native/harness/        算子验收 harness（B-01..B-04b，纯 host）
   exact.h                有界二进制有理数 + 精确性判据（L1 的仲裁者）
   bit_exact.h            L1 位级比对
   fp64_reference.h       L2 FP64 参考比对
   report.h               共用 Gate 语义与 JSON 形状
   bench.h                微基准协议（ABBA 配对 + 符号检验 + 退化分位数标记）
+  accept.h               算子晋升裁决（三态门，NotRun 阻断晋升）
 ci/
   host-only.sh           无 CANN/NPU/Rust 也能全绿的 CI 入口
+tools/
+  accept.py              一次算子验收的单命令入口（只提取，裁决交给 C++）
+  accept/accept_main.cpp 裁决 CLI：全流程唯一的裁决权威
 tools/toy/               玩具模型与 FP64 参考 oracle（纯标准库，无 numpy/torch）
   safetensors_io.py      容器读写（引擎要实现的就是这个格式）
   model.py               模型规格 + FP64 参考前向 + 逐层激活捕获
@@ -58,6 +62,7 @@ tests/
   harness_exact_test.cpp      精确性判据 + 正/负向对照
   harness_compare_test.cpp    L1/L2 比对器的语义边界
   harness_bench_test.cpp      微基准协议（注入假时钟，全确定性）
+  harness_accept_test.cpp     裁决策略（默认 NotRun、三态优先级、守护线）
   toy_reference_test.py       参考实现/容器/对拍器（26 项）
 ```
 

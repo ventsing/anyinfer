@@ -64,12 +64,16 @@ step "harness compare" \
 step "harness bench" \
     "$CXX" "${CXXFLAGS[@]}" -I native/harness \
     tests/harness_bench_test.cpp -o "$BUILD_DIR/harness-bench-test"
+step "harness accept" \
+    "$CXX" "${CXXFLAGS[@]}" -I native/harness \
+    tests/harness_accept_test.cpp -o "$BUILD_DIR/harness-accept-test"
 
 echo "== 3. 运行测试 =="
 step "graph_probe 裁决逻辑" "$BUILD_DIR/graph-probe-logic-test"
 step "harness exact（含正/负向对照）" "$BUILD_DIR/harness-exact-test"
 step "harness compare" "$BUILD_DIR/harness-compare-test"
 step "harness bench（注入假时钟）" "$BUILD_DIR/harness-bench-test"
+step "harness accept（NotRun 必须阻断晋升）" "$BUILD_DIR/harness-accept-test"
 
 echo "== 4. Python 参考 oracle（C 轨道）=="
 step "unittest (toy_reference_test)" python3 -m unittest discover -s tests -p 'toy_*_test.py'
@@ -85,7 +89,64 @@ if [ "$QUICK" -eq 0 ]; then
     step "build" cmake --build "$BUILD_DIR/cmake"
     step "ctest" ctest --test-dir "$BUILD_DIR/cmake" --output-on-failure
 
-    echo "== 6. 负向用例：CANN 守卫必须报错 =="
+    echo "== 6. 一次算子验收端到端（B-04b）=="
+    ACCEPT="$BUILD_DIR/cmake/anyinfer-accept"
+    TOY="$BUILD_DIR/toy"
+    REF="$TOY/reference_simple.safetensors"
+
+    step "裁决器已构建" test -x "$ACCEPT"
+    step "产出 L4 报告" python3 tools/toy/compare.py \
+        --reference "$REF" --candidate "$REF" --json "$TOY/l4.json" --quiet
+
+    # 缺证据必须退 2（incomplete），不能退 0 也不能退 1
+    step "缺证据 -> incomplete(2)" \
+        bash -c 'python3 tools/accept.py --op hc_post --l4-report "$1" --quiet; [ $? -eq 2 ]' \
+        _ "$TOY/l4.json"
+
+    # 合成三段报告（真实生产者需要设备，这里只验裁决通路）
+    step "合成三段报告" python3 -c "
+import json, pathlib
+d = pathlib.Path('$TOY')
+d.joinpath('correctness.json').write_text(json.dumps({'gate': 'pass'}))
+d.joinpath('bench.json').write_text(json.dumps(
+    {'verdict': 'b_faster', 'speedup': 1.08, 'sign_test_p': 0.015625}))
+d.joinpath('bench_guard.json').write_text(json.dumps(
+    {'verdict': 'indistinguishable', 'speedup': 0.70, 'sign_test_p': 0.5}))
+"
+
+    # 拆成两个平铺的 step：嵌套引号在这里只会制造不可维护的转义
+    step "三段齐备 -> pass(0)" bash -c '
+        python3 tools/accept.py --op hc_post --correctness-report "$1" \
+            --bench-report "$2" --l4-report "$3" --out "$4" --quiet
+    ' _ "$TOY/correctness.json" "$TOY/bench.json" "$TOY/l4.json" "$TOY/accept.json"
+
+    step "验收 JSON 形状正确" python3 -c '
+import json, sys
+report = json.load(open(sys.argv[1]))
+required = {"correctness_gate", "microbench", "l4_gate", "verdict", "promotable", "blocking"}
+missing = required - set(report)
+if missing:
+    print("missing keys: " + str(sorted(missing)))
+    sys.exit(1)
+if report["verdict"] != "pass" or report["promotable"] != "true":
+    print("unexpected verdict: " + str(report["verdict"]))
+    sys.exit(1)
+' "$TOY/accept.json"
+
+    # 未显著但 30% 回归：守护线必须拦截
+    step "大幅回归未显著 -> fail(1)" bash -c '
+        python3 tools/accept.py --op hc_post --correctness-report "$1" \
+            --bench-report "$2" --l4-report "$3" --quiet
+        [ $? -eq 1 ]
+    ' _ "$TOY/correctness.json" "$TOY/bench_guard.json" "$TOY/l4.json"
+
+    # 参数打错必须是 64，不能是 2（否则会被读成"证据不全"）
+    step "参数打错 -> 用法错误(64)" bash -c '
+        python3 tools/accept.py --op x --not-an-option 2>/dev/null
+        [ $? -eq 64 ]
+    '
+
+    echo "== 7. 负向用例：CANN 守卫必须报错 =="
     # 这两个用例"失败"才是正确行为，故用 ! 取反
     step "缺 SOC 必须 FATAL" bash -c \
         '! cmake -S . -B /tmp/anyinfer-ci-nosoc -G Ninja -DANYINFER_WITH_CANN=ON >/dev/null 2>&1'

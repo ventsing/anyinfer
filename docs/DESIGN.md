@@ -201,6 +201,36 @@ T_reload = W / BW + T_reprompt
 任何声称 L1 的测试必须先用它判定"这组输入下位级相等是否本来就成立"；判据不成立时应降级为 L2。
 另有一条硬约束：**算子内部若有 split-K、atomic 累加、或按运行时数据决定归约阶数，则无论输入多精确都不存在"顺序无关"，不许声称 L1。**
 
+### 6.1.1 算子晋升裁决（`native/harness/accept.h`，B-04b）
+
+一次算子改动只有三条门同时成立才允许晋升：
+
+| 门 | 判据 | 来源 |
+| --- | --- | --- |
+| `correctness_gate` | L1 位级 / L2 容差 | `bit_exact.h` / `fp64_reference.h` |
+| `microbench` | **不劣化**（不是"更快"） | `bench.h` 的配对符号检验 |
+| `l4_gate` | 端到端 token + logprob | `tools/toy/compare.py` |
+
+三条硬规则：
+
+1. **三态而非布尔**。`GateState{Pass, Fail, NotRun}`。若只用 true/false，
+   "这道门今天没跑"和"这道门通过了"就是同一个值 —— 于是第一个版本的验收工具
+   会永远输出 `l4_gate: pass`，而没有人会注意到它从未运行过。
+   `NotRun` 阻断晋升，退出码 2 与 `fail` 的 1 分开：处置方式不同
+   （`fail` → 改候选；`incomplete` → 补证据，禁止基于残缺证据决策）。
+
+2. **微基准的门槛是"不劣化"**。`indistinguishable` 判通过（证据不足不等于更差），
+   `a_faster` 判失败。另加守护线：回归幅度超过 10% 时**即使未达显著**也判失败 ——
+   测不出显著性的巨大回归说明测量本身不可信，不可信就不许晋升。
+
+3. **归因必须可区分**。`invalid_reference` 说明坏的是参考实现、不是被测算子；
+   `length_mismatch` 说明坏的是调用方。两者都阻断，但责任人不同，
+   报告里必须分开写，否则有人会去优化一个本来就没问题的 kernel。
+
+裁决权威只有 `accept.h` 一处（C++ CLI `anyinfer-accept`）。
+跨语言入口 `tools/accept.py` 只做提取、不做聚合 —— 两份实现迟早会分叉。
+每份判决都记录当时用的策略参数（`max_regression`），因为**没有规则记录的判决不可审计**。
+
 ### 6.2 logprob 保真（P0）
 
 - 引擎必须输出 `(token, logprob[, top-k logprobs])`。
