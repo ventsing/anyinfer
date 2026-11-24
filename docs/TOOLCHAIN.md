@@ -11,12 +11,13 @@
 | make | GNU Make (系统) | 系统包 | `/usr/bin/make` |
 | **cmake** | **4.4.5** | pip 轮子（阿里云镜像） | `~/.local/bin/cmake` |
 | **ninja** | **1.13.2** | pip 轮子（阿里云镜像） | `~/.local/bin/ninja` |
+| **rustc / cargo** | **1.100.0** | rustup（TUNA 镜像），profile = minimal | `~/.cargo/bin/` |
 | python3 | 3.14 | 系统包 | `/usr/bin/python3` |
 
-`~/.local/bin` **默认不在 PATH 上**，每个 shell 需要：
+`~/.local/bin` 与 `~/.cargo/bin` **默认都不在 PATH 上**，每个 shell 需要：
 
 ```bash
-export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 ```
 
 或写进 `~/.bashrc`（本项目不自动修改用户 dotfile）。
@@ -36,9 +37,13 @@ export PATH="$HOME/.local/bin:$PATH"
 | 源 | 速度 |
 | --- | --- |
 | `mirrors.aliyun.com/pypi/simple/` | ~1.6 MB/s |
+| `mirrors.ustc.edu.cn/crates.io` | ~510 KB/s |
 | `pypi.tuna.tsinghua.edu.cn/simple/` | ~0.9 MB/s |
-| `mirrors.tuna.tsinghua.edu.cn/rustup` | ~0.38 MB/s |
+| `mirrors.tuna.tsinghua.edu.cn/rustup` | ~380 KB/s |
+| `static.crates.io` 直连 | ~20 KB/s |
 | `pypi.org` 直连 | ~23 KB/s |
+
+不可达：`github.com`、`rsproxy.cn`、`index.crates.io` 直连（均 `http=000` 或超时）。
 
 ## cmake / ninja 的安装方法（无 root、无 pip 时）
 
@@ -61,7 +66,7 @@ PYTHONPATH=/tmp/pip-25.3-py3-none-any.whl python3 -m pip install \
   cmake ninja
 ```
 
-## Rust（可选，Track D/F-02 才需要）
+## Rust（Track D/F-02 才需要，但已装好）
 
 `static.rust-lang.org` 只有 ~46 KB/s，必须走 TUNA 镜像：
 
@@ -72,6 +77,19 @@ cd /tmp && curl -sSLO https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup/dist/x8
 chmod +x rustup-init
 ./rustup-init -y --no-modify-path --profile minimal --default-toolchain stable
 ```
+
+**crates.io 必须换镜像**，否则拉依赖会超时。已写入 `~/.cargo/config.toml`：
+
+```toml
+[source.crates-io]
+replace-with = "ustc"
+
+[source.ustc]
+registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"
+```
+
+> 注意：TUNA 的 `crates.io-index` 里 `config.json` 的 `dl` 仍指向 `static.crates.io`（~20 KB/s），
+> 而 USTC 的 `dl` 指向其本地端点（~510 KB/s）。**所以选 USTC 而不是 TUNA。**
 
 ## 验证记录
 
@@ -103,6 +121,25 @@ cmake -S . -B /tmp/b2 -G Ninja -DANYINFER_WITH_CANN=ON -DANYINFER_SOC=ascend910b
 
 **2026-11-24 实测结果**：1)–5) 全部符合预期。
 
+### Rust 验证记录
+
+原型仓库 `../anyinfer` 的测试套件在本轮之前**从未被执行过**（缺 Rust 工具链）。现已跑通：
+
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+cd ../anyinfer && cargo test --locked --release
+```
+
+```
+lib                   15 passed   （scheduler 并发 7 / stream 3 / model 4 / oracle 1）
+src/main.rs            8 passed   （head_runner / opbench / scheduler_bench / host_observation）
+host_decode_allocations 1 passed   （稳态 decode 不调用 Rust 分配器）
+────────────────────────────────
+合计                  24 passed, 0 failed
+```
+
+工作树保持干净（`target/` 已在原型的 `.gitignore` 中）。
+
 ## 本机**不能**验证的
 
 | 项 | 原因 |
@@ -110,4 +147,4 @@ cmake -S . -B /tmp/b2 -G Ninja -DANYINFER_WITH_CANN=ON -DANYINFER_SOC=ascend910b
 | 任何 NPU 相关内容 | 无 CANN、无 NPU、无 `npu-smi` |
 | Ascend C kernel 编译 | 需 CANN 的 `ascendc.cmake` |
 | `graph_probe_test.cpp` 链接 | 需 `acl/acl.h` 与 `libascendcl.so` |
-| 原型仓库 `cargo test` | 需 Rust（见上文安装段） |
+| 原型仓库的 C++ / 设备侧测试 | 同上（其 Rust 测试已可跑，见上） |
