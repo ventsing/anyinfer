@@ -1,0 +1,5 @@
+build/
+*.o
+*.so
+*.json.part
+graph-probe.json
