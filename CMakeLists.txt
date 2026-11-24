@@ -42,6 +42,10 @@ if(BUILD_TESTING)
   add_executable(anyinfer-harness-compare-test tests/harness_compare_test.cpp)
   target_link_libraries(anyinfer-harness-compare-test PRIVATE anyinfer_harness)
   add_test(NAME harness-compare COMMAND anyinfer-harness-compare-test)
+
+  add_executable(anyinfer-harness-bench-test tests/harness_bench_test.cpp)
+  target_link_libraries(anyinfer-harness-bench-test PRIVATE anyinfer_harness)
+  add_test(NAME harness-bench COMMAND anyinfer-harness-bench-test)
 endif()
 
 # ---------------------------------------------------------------- device

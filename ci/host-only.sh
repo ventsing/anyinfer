@@ -61,11 +61,15 @@ step "harness exact" \
 step "harness compare" \
     "$CXX" "${CXXFLAGS[@]}" -I native/harness \
     tests/harness_compare_test.cpp -o "$BUILD_DIR/harness-compare-test"
+step "harness bench" \
+    "$CXX" "${CXXFLAGS[@]}" -I native/harness \
+    tests/harness_bench_test.cpp -o "$BUILD_DIR/harness-bench-test"
 
 echo "== 3. 运行测试 =="
 step "graph_probe 裁决逻辑" "$BUILD_DIR/graph-probe-logic-test"
 step "harness exact（含正/负向对照）" "$BUILD_DIR/harness-exact-test"
 step "harness compare" "$BUILD_DIR/harness-compare-test"
+step "harness bench（注入假时钟）" "$BUILD_DIR/harness-bench-test"
 
 echo "== 4. Python 参考 oracle（C 轨道）=="
 step "unittest (toy_reference_test)" python3 -m unittest discover -s tests -p 'toy_*_test.py'
