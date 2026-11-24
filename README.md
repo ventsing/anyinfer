@@ -45,6 +45,10 @@ native/harness/        算子验收 harness（B-01..B-04b，纯 host）
   report.h               共用 Gate 语义与 JSON 形状
   bench.h                微基准协议（ABBA 配对 + 符号检验 + 退化分位数标记）
   accept.h               算子晋升裁决（三态门，NotRun 阻断晋升）
+crates/anyinfer-plan/     步级 plan（D-02，零依赖）
+  src/lib.rs            PlanConfig / RegionSource / Plan::new（唯一发生分配的地方）
+  src/staging.rs        定长 staging + prepare_decode_step（先全校验再写）
+  tests/zero_allocation.rs  计数分配器：稳态零分配 + 正控制
 crates/anyinfer-sampler/  确定性采样器（D-04，零依赖）
   src/detmath.rs        自带 exp（决策路径不用 libm ⇒ 跨平台逐位一致）
   src/rng.rs            计数器式 RNG：uniform01 是 (seed, position) 的纯函数
