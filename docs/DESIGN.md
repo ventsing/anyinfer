@@ -190,6 +190,10 @@ T_reload = W / BW + T_reprompt
 
 **L1 前提**：输入必须是"乘积与求和可精确表示"的有界二进制有理数（原型 `reference.h:23-35` 的做法）。**没有这个前提，位级相等不成立，不许声称。**
 
+**L1 的仲裁者**：`native/harness/exact.h` —— `product_is_exact` / `sum_is_exact` / `dot_is_exact`。
+任何声称 L1 的测试必须先用它判定"这组输入下位级相等是否本来就成立"；判据不成立时应降级为 L2。
+另有一条硬约束：**算子内部若有 split-K、atomic 累加、或按运行时数据决定归约阶数，则无论输入多精确都不存在"顺序无关"，不许声称 L1。**
+
 ### 6.2 logprob 保真（P0）
 
 - 引擎必须输出 `(token, logprob[, top-k logprobs])`。

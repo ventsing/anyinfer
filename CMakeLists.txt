@@ -27,6 +27,23 @@ if(BUILD_TESTING)
   add_test(NAME graph-probe-logic COMMAND anyinfer-graph-probe-logic-test)
 endif()
 
+# ---------------------------------------------------------------- 算子验收 harness
+# B-01/B-02/B-03：精确输入判据 + L1 位级比对 + L2 FP64 参考比对。
+# 全部是纯 host 头文件，不含任何设备依赖。
+add_library(anyinfer_harness INTERFACE)
+target_include_directories(anyinfer_harness INTERFACE
+  "${CMAKE_CURRENT_SOURCE_DIR}/native/harness")
+
+if(BUILD_TESTING)
+  add_executable(anyinfer-harness-exact-test tests/harness_exact_test.cpp)
+  target_link_libraries(anyinfer-harness-exact-test PRIVATE anyinfer_harness)
+  add_test(NAME harness-exact COMMAND anyinfer-harness-exact-test)
+
+  add_executable(anyinfer-harness-compare-test tests/harness_compare_test.cpp)
+  target_link_libraries(anyinfer-harness-compare-test PRIVATE anyinfer_harness)
+  add_test(NAME harness-compare COMMAND anyinfer-harness-compare-test)
+endif()
+
 # ---------------------------------------------------------------- device
 if(NOT ANYINFER_WITH_CANN)
   message(STATUS "ANYINFER_WITH_CANN=OFF: device targets skipped (host-only build)")

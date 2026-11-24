@@ -12,15 +12,15 @@
 ## 当前焦点
 
 ```
-A-01 上机预检 ──> A-02 编译 ──> A-03 四臂判决 ──┬─> [indirection_supported] ──> E-01…
-    (0.2h)          (2h)          (0.5h)        └─> [其它 verdict] ──────────> A-04 后备探针
+A 轨道（等硬件）：A-01 上机预检 ──> A-02 编译 ──> A-03 四臂判决 ──┬─> [supported] ──> E-01…
+                                                                └─> [其它] ──────> A-04
 
-并行（不依赖 A）：
-  C-01/C-02 玩具模型导出（纯 Python，无卡可做）
-  F-01 CI 骨架
+B 轨道（本机可推进）：B-01 ✅ ─> B-02 ✅ ─> B-03 ✅ ─> B-04 微基准 ─> B-04b 统一入口 ─> B-06 hc_post
+C 轨道（本机可推进）：C-01 权重导出 ─> C-02 参考激活导出 ─> C-04 对拍执行器
 ```
 
-**下一动作**：A-01 —— 编译机上两条 `grep`，10 分钟出结论，决定 `graph_compat.h` 的唯一未知项。
+**下一步可选**：B-04（微基准框架，纯 host 可测，但真实计时需上卡）或 C-01/C-02（玩具模型，纯 Python）。
+A 轨道唯一可做的仍是 A-01，需编译机。
 
 ---
 
@@ -43,12 +43,13 @@ A-01 上机预检 ──> A-02 编译 ──> A-03 四臂判决 ──┬─> [i
 
 | ID | 任务 | 完成判据 | 依赖 | 估时 |
 | --- | --- | --- | --- | --- |
-| B-01 | 精确输入生成器（有界 dyadic） | `native/include/exact.h`：乘积与求和可精确表示；含负向用例证明「非精确输入会使位级相等不成立」 | — | 0.5 d |
-| B-02 | L1 位级比对器 + JSON 裁决 | 复用 `graph_probe_verdict.h` 的裁决风格；输出 `pass`/`mismatch@index` | B-01 | 1 d |
-| B-03 | L2 FP64 参考比对器（GEMM/attention 类） | 相对误差 + max_abs；不再声称位级 | B-02 | 1 d |
+| B-01 | ✅ 精确输入生成器（有界 dyadic） | `native/harness/exact.h`：`product_is_exact` / `sum_is_exact` / `dot_is_exact` + 确定性生成；正向对照（顺序无关）与**负向对照**（{2^24,1,1} 两种结合律给出不同位模式）均通过 | — | 完成 |
+| B-02 | ✅ L1 位级比对器 + JSON 裁决 | `native/harness/bit_exact.h`：位模式语义（+0/-0、NaN 负载均判不同）、`NonFinite` 独立归类、JSON 可解析 | B-01 | 完成 |
+| B-03 | ✅ L2 FP64 参考比对器 | `native/harness/fp64_reference.h`：`atol + rtol*abs(ref)` 判据、参考非法归因到 `InvalidReference`、零容差退化用于确定性自检 | B-02 | 完成 |
 | B-04 | 微基准：warmup 5 / samples 7 / iterations 8 + 中位数 + **paired A/B** | 同卡同进程交错测得两版本差异；报告分位数而非均值 | B-02 | 2 d |
+| B-04b | 把三件套串成「一次算子验收」入口 | 单命令产出 `{correctness_gate, microbench, l4_gate}` 三段 JSON；任一失败即非零退出 | B-03, B-04 | 1 d |
 | B-05 | 熔断与回退：双版本 `.so` + 运行期切换 | 故意注入坏 kernel → 自检失败 → 自动切 stable 且服务不断 | B-02 | 3 d |
-| B-06 | 首个目标算子：`hc_post` 参数化 + tile/schedule 搜索 | 三条门全绿（L1 位级 + 微基准不劣化 + 端到端无回归） | B-02, B-04 | 3 d |
+| B-06 | 首个目标算子：`hc_post` 参数化 + tile/schedule 搜索 | 三条门全绿（L1 位级 + 微基准不劣化 + 端到端无回归） | B-03, B-04 | 3 d |
 | B-07 | 搜索驱动脚本（RSI 闭环最短验证） | 给定参数空间自动跑 N 组，按 KPI 排序并输出推荐 | B-06 | 2 d |
 
 > **B-06 + B-07 是「RSI 闭环能不能闭合」的最小证据**。它不依赖 Track A，可独立推进。
@@ -98,7 +99,7 @@ A-01 上机预检 ──> A-02 编译 ──> A-03 四臂判决 ──┬─> [i
 | ID | 任务 | 完成判据 | 依赖 | 估时 |
 | --- | --- | --- | --- | --- |
 | F-00 | ✅ 本机工具链 + host-only 构建链 | cmake 4.4.5 / ninja 1.13.2 已装；`cmake -S . -B build -G Ninja` + `ctest` 全绿；两条负向用例（缺 SOC / 无 CANN）按预期报错。见 `docs/TOOLCHAIN.md` | — | 完成 |
-| F-01 | CI：host-only 必跑 | `g++ graph_probe_logic_test` + `bash -n` + `cmake -B build`（无 CANN 路径）全绿 | F-00 | 0.5 d |
+| F-01 | ✅ CI：host-only 必跑 | `ci/host-only.sh` 12 项全绿：`bash -n` + 三个测试以 `-Werror -Wpedantic` 编译并运行 + cmake/ctest + 两条 CANN 守卫负向用例 | F-00 | 完成 |
 | F-02 | `rust-toolchain.toml` + `rust-version` | 锁定版本；CI 用同一版本 | D-01 | 0.2 d |
 | F-03 | 时间预算守护 | 脚本量测全量重建与 smoke，超 10 min / 60 s 直接失败 | B-06 | 0.5 d |
 | F-04 | LICENSE / NOTICE 决策 | 明确 derive-from-Apache-2.0（保留 notices）还是 clean-room；落成文件 | — | 0.2 d |
@@ -137,6 +138,8 @@ A-01 上机预检 ──> A-02 编译 ──> A-03 四臂判决 ──┬─> [i
 
 | 日期 | 里程碑 | 判决 | 依据 |
 | --- | --- | --- | --- |
+| 2026-11-24 | B-01/02/03 | ✅ 通过 | 三份 host-only 头文件 + 两个测试；精确性判据带正/负向对照；L1/L2 语义边界（±0、NaN 负载、rtol 尺度）逐条钉住 |
+| 2026-11-24 | F-01 | ✅ 通过 | `ci/host-only.sh` 12/12 全绿（含 `-Werror -Wpedantic` 编译与两条 CANN 守卫负向用例） |
 | 2026-11-24 | F-00 工具链 | ✅ 通过 | cmake 4.4.5 + ninja 1.13.2，host-only 配置/构建/`ctest` 全绿；缺 SOC 与无 CANN 两条负向用例按预期报错 |
 | 2026-11-24 | A（代码就绪） | 待上机 | host-only 裁决逻辑 10/10 通过；device 目标未编译 |
 

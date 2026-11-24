@@ -35,8 +35,17 @@ native/graph_probe/    里程碑 A：图捕获探针
   graph_compat.h         图 API 兼容层（唯一的不确定项）
   graph_probe_verdict.h  四臂 -> 裁决映射（host 可测）
   graph_probe_test.cpp   四臂驱动
+native/harness/        算子验收 harness（B-01/B-02/B-03，纯 host）
+  exact.h                有界二进制有理数 + 精确性判据（L1 的仲裁者）
+  bit_exact.h            L1 位级比对
+  fp64_reference.h       L2 FP64 参考比对
+  report.h               共用 Gate 语义与 JSON 形状
+ci/
+  host-only.sh           无 CANN/NPU/Rust 也能全绿的 CI 入口
 tests/
   graph_probe_logic_test.cpp  裁决逻辑自测（无需 NPU，CI 必跑）
+  harness_exact_test.cpp      精确性判据 + 正/负向对照
+  harness_compare_test.cpp    L1/L2 比对器的语义边界
 ```
 
 ---
