@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/anyinfer-abi", "crates/anyinfer-sampler", "crates/anyinfer-plan"]
+members = ["crates/anyinfer-abi", "crates/anyinfer-sampler", "crates/anyinfer-plan", "crates/anyinfer-kv"]
 resolver = "3"
 
 [workspace.package]

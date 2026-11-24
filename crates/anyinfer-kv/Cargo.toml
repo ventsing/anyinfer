@@ -1,0 +1,10 @@
+[package]
+name = "anyinfer-kv"
+description = "KV 块分配与前缀共享（E-01/E-02）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/lib.rs"
