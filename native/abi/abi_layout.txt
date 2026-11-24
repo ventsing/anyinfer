@@ -1,0 +1,30 @@
+anyinfer-abi-layout 1
+struct AnyInferStatus size 24 align 8
+field code 0 4
+field failed_op_id 4 4
+field detail 8 4
+field reserved0 12 4
+field step_index 16 8
+struct AnyInferStep size 144 align 8
+field abi_version 0 4
+field flags 4 4
+field batch_size 8 4
+field num_tokens 12 4
+field max_blocks 16 4
+field vocab_size 20 4
+field topk 24 4
+field reserved0 28 4
+field step_index 32 8
+field weight_version 40 8
+field stream 48 8
+field token_ids 56 8
+field positions 64 8
+field block_table 72 8
+field seq_lens 80 8
+field slot_mapping 88 8
+field kv_cache 96 8
+field logits 104 8
+field topk_values 112 8
+field topk_indices 120 8
+field logsumexp 128 8
+field sampling_mask 136 8

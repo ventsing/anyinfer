@@ -1,0 +1,10 @@
+[package]
+name = "anyinfer-sampler"
+description = "确定性采样器：top-k/top-p + logprob 导出（D-04）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/lib.rs"

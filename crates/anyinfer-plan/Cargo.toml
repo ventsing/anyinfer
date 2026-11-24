@@ -1,0 +1,10 @@
+[package]
+name = "anyinfer-plan"
+description = "步级 plan：所有分配在 plan 期，稳态每步零分配（D-02）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/lib.rs"

@@ -1,6 +1,0 @@
-vllm-ascend/** -text
-build-deps/** -text
-*.sha256 text eol=lf
-*.tsv text eol=lf
-SOURCE.json text eol=lf
-executable-files.txt text eol=lf

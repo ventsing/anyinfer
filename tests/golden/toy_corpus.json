@@ -1,0 +1,44 @@
+{
+  "_comment": [
+    "C-03：语料与容差表。",
+    "语料只放 token 序列；模型形状（spec）由 export.py 产出的 manifest.json 钉住，",
+    "避免同一份形状在两处维护、然后悄悄漂移。",
+    "vocab = 257（素数），所以 256 是合法上界，任何按 2 的幂对齐的越界都会在这里暴露。"
+  ],
+  "tolerances": {
+    "default": {
+      "atol": 1e-06,
+      "rtol": 1e-05
+    },
+    "rules": [
+      {
+        "prefix": "logits",
+        "atol": 1e-05,
+        "rtol": 1e-04
+      },
+      {
+        "prefix": "logprobs",
+        "atol": 1e-05,
+        "rtol": 1e-04
+      }
+    ]
+  },
+  "prompts": [
+    {
+      "name": "simple",
+      "tokens": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    },
+    {
+      "name": "repeat",
+      "tokens": [42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42]
+    },
+    {
+      "name": "bounds",
+      "tokens": [0, 256, 0, 256, 0, 256, 0, 256, 0, 256, 0, 256]
+    },
+    {
+      "name": "descending",
+      "tokens": [200, 180, 160, 140, 120, 100, 80, 60, 40, 20, 10, 5]
+    }
+  ]
+}
